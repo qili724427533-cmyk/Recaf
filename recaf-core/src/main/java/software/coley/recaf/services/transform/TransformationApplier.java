@@ -21,10 +21,14 @@ import software.coley.recaf.workspace.model.resource.WorkspaceResource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -49,6 +53,7 @@ public class TransformationApplier {
 	private final MappingApplier mappingApplier;
 	private final Workspace workspace;
 	private int maxPasses = 1;
+	private boolean dropFaultyClasses;
 
 	/**
 	 * @param transformationManager
@@ -87,6 +92,22 @@ public class TransformationApplier {
 	 */
 	public void setMaxPasses(int maxPasses) {
 		this.maxPasses = maxPasses;
+	}
+
+	/**
+	 * @param dropFaultyClasses
+	 * 		When {@code true}, classes that fail to be written back to bytecode are dropped from the results
+	 * 		instead of aborting the run. Forwarded to the {@link JvmTransformerContext} of each run.
+	 */
+	public void setDropFaultyClasses(boolean dropFaultyClasses) {
+		this.dropFaultyClasses = dropFaultyClasses;
+	}
+
+	/**
+	 * @return {@code true} when faulty classes are dropped instead of aborting the run.
+	 */
+	public boolean isDropFaultyClasses() {
+		return dropFaultyClasses;
 	}
 
 	/**
@@ -172,12 +193,13 @@ public class TransformationApplier {
 		WorkspaceResource resource = workspace.getPrimaryResource();
 		ResourcePathNode resourcePath = PathNodes.resourcePath(workspace, resource);
 		JvmTransformerContext context = new JvmTransformerContext(workspace, resource, transformers, parameters);
+		context.setDropFaultyClasses(dropFaultyClasses);
 		for (JvmClassTransformer transformer : transformers) {
 			try {
 				transformer.setup(context, workspace);
 			} catch (Throwable t) {
 				// If setup fails, abort the transformation
-				String message = "Transformer '" + transformer.name() + "' failed on setup";
+				String message = "Transformer '" + transformer.identifier() + "' failed on setup";
 				logger.error(message, t);
 				throw new TransformationException(message, t);
 			}
@@ -235,8 +257,8 @@ public class TransformationApplier {
 											currentPass, transformer.getClass().getSimpleName(), didWork));
 
 								} catch (Throwable t) {
-									logger.error("Transformer '{}' failed on class '{}'", transformer.name(), cls.getName(), t);
-									feedback.onTransformFailure(workspace, resource, bundle, cls,  transformer,currentPass, t);
+									logger.error("Transformer '{}' failed on class '{}'", transformer.identifier(), cls.getName(), t);
+									feedback.onTransformFailure(workspace, resource, bundle, cls, transformer, currentPass, t);
 									ClassPathNode path = bundlePathNode.child(cls.getPackageName()).child(cls);
 									var transformerToThrowable = transformJvmFailures.computeIfAbsent(path, p -> Collections.synchronizedMap(new IdentityHashMap<>()));
 									transformerToThrowable.put(transformer.getClass(), t);
@@ -254,7 +276,7 @@ public class TransformationApplier {
 						// If a transformer is prunable (they no longer execute after a full pass without any work completed)
 						// schedule it for removal so that it will not be executed in following passes.
 						if (!transformerWorkDone.get() && transformer.pruneAfterNoWork()) {
-							logger.debug("Pruning transformer '{}' after pass {} completed with no work done", transformer.name(), pass);
+							logger.debug("Pruning transformer '{}' after pass {} completed with no work done", transformer.identifier(), pass);
 							prunedTransformers.add(transformer);
 						}
 					}
@@ -365,6 +387,87 @@ public class TransformationApplier {
 			if (!queue.containsType(dependency))
 				insert(queue, dependency, Sets.add(dependants, transformerClass));
 		queue.add(transformer);
+	}
+
+	/**
+	 * Sorts transformers by recommended order.
+	 *
+	 * @param transformers
+	 * 		Transformers to order.
+	 * @param <T>
+	 * 		Transformer type.
+	 *
+	 * @return Reordered transformers.
+	 */
+	@Nonnull
+	public static <T extends ClassTransformer> List<T> sortRecommended(@Nonnull List<T> transformers) {
+		int n = transformers.size();
+		if (n <= 1)
+			return transformers;
+
+		// Key by type for quickj lookups.
+		Map<Class<? extends ClassTransformer>, Integer> indexByClass = new HashMap<>();
+		for (int i = 0; i < n; i++)
+			indexByClass.put(transformers.get(i).getClass(), i);
+
+		// Build graph of recommended predecessors and successors.
+		Map<Class<? extends ClassTransformer>, List<Class<? extends ClassTransformer>>> edges = new HashMap<>();
+		Map<Class<? extends ClassTransformer>, Integer> inDegree = new HashMap<>();
+		for (T transformer : transformers) {
+			// Initialize the graph with all nodes, even if they have no edges.
+			Class<? extends ClassTransformer> type = transformer.getClass();
+			edges.put(type, new ArrayList<>());
+			inDegree.put(type, 0);
+		}
+		for (T transformer : transformers) {
+			// Add edges for recommended predecessors and successors, but only if the other transformer is in the list.
+			Class<? extends ClassTransformer> type = transformer.getClass();
+			for (Class<? extends ClassTransformer> pre : transformer.recommendedPredecessors()) {
+				if (!indexByClass.containsKey(pre))
+					continue;
+				edges.get(pre).add(type);
+				inDegree.merge(type, 1, Integer::sum);
+			}
+			for (Class<? extends ClassTransformer> suc : transformer.recommendedSuccessors()) {
+				if (!indexByClass.containsKey(suc))
+					continue;
+				edges.get(type).add(suc);
+				inDegree.merge(suc, 1, Integer::sum);
+			}
+		}
+
+		// Setup queue of ready nodes, sorted by their original index in the list.
+		PriorityQueue<Class<? extends ClassTransformer>> ready =
+				new PriorityQueue<>(Comparator.comparingInt(indexByClass::get));
+		for (T transformer : transformers)
+			if (inDegree.get(transformer.getClass()) == 0)
+				ready.add(transformer.getClass());
+
+		// Perform a topological sort of the graph, using the original list order as a tie-breaker.
+		List<Class<? extends ClassTransformer>> sorted = new ArrayList<>(n);
+		while (!ready.isEmpty()) {
+			Class<? extends ClassTransformer> type = ready.poll();
+			sorted.add(type);
+			for (Class<? extends ClassTransformer> next : edges.getOrDefault(type, List.of())) {
+				int degree = inDegree.merge(next, -1, Integer::sum);
+				if (degree == 0)
+					ready.add(next);
+			}
+		}
+
+		// If we have a cycle that cannot be resolved, we will just append the remaining nodes in their current relative order.
+		if (sorted.size() < n) {
+			Set<Class<? extends ClassTransformer>> sortedSet = new HashSet<>(sorted);
+			for (T transformer : transformers)
+				if (!sortedSet.contains(transformer.getClass()))
+					sorted.add(transformer.getClass());
+		}
+
+		// Map the sorted types back to the original transformer instances.
+		Map<Class<? extends ClassTransformer>, T> byClass = new HashMap<>();
+		for (T transformer : transformers)
+			byClass.put(transformer.getClass(), transformer);
+		return sorted.stream().map(byClass::get).toList();
 	}
 
 	/**

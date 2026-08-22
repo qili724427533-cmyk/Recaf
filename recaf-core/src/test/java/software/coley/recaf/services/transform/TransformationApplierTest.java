@@ -2,6 +2,10 @@ package software.coley.recaf.services.transform;
 
 import jakarta.annotation.Nonnull;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.MethodNode;
 import software.coley.recaf.info.JvmClassInfo;
 import software.coley.recaf.services.inheritance.InheritanceGraph;
 import software.coley.recaf.services.inheritance.InheritanceGraphService;
@@ -21,8 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -134,6 +137,60 @@ class TransformationApplierTest extends TestBase {
 		assertThrows(TransformationException.class, () -> applier.transformJvm(Collections.singletonList(JvmCycleSingle.class)));
 	}
 
+	@Test
+	void dropBrokenClassWrites() {
+		Class<FrameBreakingTransformer> transformerClass = FrameBreakingTransformer.class;
+		Map<Class<? extends JvmClassTransformer>, Supplier<JvmClassTransformer>> map = new IdentityHashMap<>();
+		map.put(transformerClass, () -> {
+			try {
+				return transformerClass.getDeclaredConstructor().newInstance();
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Failed to instantiate transformer", e);
+			}
+		});
+		TransformationManager manager = new TransformationManager(map);
+		TransformationApplier applier = new TransformationApplier(manager, config, inheritanceGraph, mappingApplier, workspace);
+
+		// If a class is malformed when we try to write back the transformed class, the default behavior is to abort the run.
+		assertFalse(applier.isDropFaultyClasses());
+		assertThrows(TransformationException.class, () -> applier.transformJvm(Collections.singletonList(transformerClass)));
+
+		// We can configure the applier to drop broken classes instead of aborting the run.
+		applier.setDropFaultyClasses(true);
+
+		// The run will pass, but the broken class will be dropped from the result.
+		// Since it's the only class in the workspace, the result will be empty.
+		JvmTransformResult result = assertDoesNotThrow(() -> applier.transformJvm(Collections.singletonList(transformerClass)));
+		assertTrue(result.getTransformedClasses().isEmpty());
+	}
+
+	static class FrameBreakingTransformer implements JvmClassTransformer {
+
+		@Override
+		public void transform(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace,
+		                      @Nonnull WorkspaceResource resource, @Nonnull JvmClassBundle bundle,
+		                      @Nonnull JvmClassInfo initialClassState) {
+			// Bogus method descriptor will cause a failure during transformation write-back.
+			ClassNode broken = new ClassNode();
+			broken.visit(initialClassState.getVersion(), Opcodes.ACC_PUBLIC, initialClassState.getName(), null, "java/lang/Object", null);
+			MethodNode method = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "broken", "(Q)V", null, null);
+			method.instructions.add(new InsnNode(Opcodes.RETURN));
+			method.maxStack = 0;
+			method.maxLocals = 0;
+			broken.methods.add(method);
+			broken.visitEnd();
+
+			context.setNode(bundle, initialClassState, broken);
+			context.setRecomputeFrames(initialClassState.getName());
+		}
+
+		@Nonnull
+		@Override
+		public String identifier() {
+			return "frame-breaking";
+		}
+	}
+
 	static class JvmTransformerA implements JvmClassTransformer {
 
 		@Override
@@ -145,7 +202,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-a";
 		}
 	}
@@ -161,7 +218,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-b";
 		}
 	}
@@ -183,7 +240,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-depending-on-a";
 		}
 	}
@@ -205,7 +262,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-cycle";
 		}
 	}
@@ -227,7 +284,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-cycle-a";
 		}
 	}
@@ -249,7 +306,7 @@ class TransformationApplierTest extends TestBase {
 
 		@Nonnull
 		@Override
-		public String name() {
+		public String identifier() {
 			return "jvm-cycle-b";
 		}
 	}

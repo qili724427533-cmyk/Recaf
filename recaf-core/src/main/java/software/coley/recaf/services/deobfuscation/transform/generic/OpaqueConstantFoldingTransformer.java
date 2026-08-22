@@ -59,6 +59,8 @@ import static software.coley.recaf.util.AsmInsnUtil.*;
  */
 @Dependent
 public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
+	/** Stable translation key for this transformer. */
+	public static final String IDENTIFIER = "peephole.data.constfold";
 	private static final int[] ARG_1_SIZE = new int[255];
 	private static final int[] ARG_2_SIZE = new int[255];
 	private final InheritanceGraphService graphService;
@@ -735,8 +737,8 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Opaque constant folding";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 
 	@Nonnull

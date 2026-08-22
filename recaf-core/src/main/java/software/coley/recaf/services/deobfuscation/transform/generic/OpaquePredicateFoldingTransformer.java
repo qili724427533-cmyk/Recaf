@@ -44,6 +44,8 @@ import static software.coley.recaf.util.AsmInsnUtil.isSwitchEffectiveGoto;
  */
 @Dependent
 public class OpaquePredicateFoldingTransformer implements JvmClassTransformer {
+	public static final String IDENTIFIER = "peephole.flow.predicate";
+
 	private final InheritanceGraphService graphService;
 	private InheritanceGraph inheritanceGraph;
 
@@ -433,7 +435,7 @@ public class OpaquePredicateFoldingTransformer implements JvmClassTransformer {
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Opaque predicate simplification";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 }

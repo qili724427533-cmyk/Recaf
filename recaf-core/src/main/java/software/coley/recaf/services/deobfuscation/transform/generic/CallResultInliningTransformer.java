@@ -19,6 +19,7 @@ import software.coley.recaf.services.transform.ClassTransformer;
 import software.coley.recaf.services.transform.JvmClassTransformer;
 import software.coley.recaf.services.transform.JvmTransformerContext;
 import software.coley.recaf.services.transform.TransformationException;
+import software.coley.recaf.services.transform.TransformationParameter;
 import software.coley.recaf.util.ClassMethodPair;
 import software.coley.recaf.util.analysis.eval.EvaluationResult;
 import software.coley.recaf.util.analysis.eval.EvaluationYieldResult;
@@ -43,9 +44,12 @@ import java.util.Set;
  */
 @Dependent
 public class CallResultInliningTransformer implements JvmClassTransformer {
-	/** Key for the maximum number of steps to allow when evaluating a method. */
-	public static final String KEY_MAX_STEPS = "call-result-inlining.max-steps";
+	public static final String IDENTIFIER = "peephole.data.callinline";
+	public static final String KEY_MAX_STEPS = IDENTIFIER + ".max-steps";
+
 	private static final int DEFAULT_MAX_STEPS = 20_000;
+	private static final TransformationParameter<Integer> MAX_STEPS_PARAMETER =
+			new TransformationParameter<>(KEY_MAX_STEPS, int.class, DEFAULT_MAX_STEPS);
 
 	private final InheritanceGraphService graphService;
 
@@ -146,8 +150,14 @@ public class CallResultInliningTransformer implements JvmClassTransformer {
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Call result inlining";
+	public String identifier() {
+		return IDENTIFIER;
+	}
+
+	@Nonnull
+	@Override
+	public List<TransformationParameter<?>> getParameterDefinitions() {
+		return List.of(MAX_STEPS_PARAMETER);
 	}
 
 }

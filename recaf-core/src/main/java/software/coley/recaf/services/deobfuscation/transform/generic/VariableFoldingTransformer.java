@@ -51,6 +51,8 @@ import static software.coley.recaf.util.AsmInsnUtil.*;
  */
 @Dependent
 public class VariableFoldingTransformer implements JvmClassTransformer {
+	public static final String IDENTIFIER = "peephole.data.varfold";
+
 	private final InheritanceGraphService graphService;
 	private InheritanceGraph inheritanceGraph;
 
@@ -488,8 +490,8 @@ public class VariableFoldingTransformer implements JvmClassTransformer {
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Variable folding";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 
 	/**

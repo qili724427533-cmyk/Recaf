@@ -36,6 +36,8 @@ import java.util.Set;
  */
 @Dependent
 public class StaticValueInliningTransformer implements JvmClassTransformer {
+	public static final String IDENTIFIER = "peephole.data.staticinline";
+
 	@Override
 	@SuppressWarnings("OptionalGetWithoutIsPresent")
 	public void transform(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace,
@@ -99,8 +101,8 @@ public class StaticValueInliningTransformer implements JvmClassTransformer {
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Static value inlining";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 
 	@Nonnull

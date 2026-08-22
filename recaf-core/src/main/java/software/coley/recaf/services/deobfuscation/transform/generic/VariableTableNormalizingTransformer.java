@@ -36,6 +36,8 @@ import java.util.TreeMap;
  */
 @Dependent
 public class VariableTableNormalizingTransformer implements JvmClassTransformer {
+	public static final String IDENTIFIER = "cleanup.vartable";
+
 	@Override
 	public void transform(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace,
 	                      @Nonnull WorkspaceResource resource, @Nonnull JvmClassBundle bundle,
@@ -115,8 +117,8 @@ public class VariableTableNormalizingTransformer implements JvmClassTransformer 
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Variable table normalization";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 
 	private record NameType(@Nonnull String name, @Nonnull Type type) {}

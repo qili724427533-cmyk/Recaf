@@ -20,7 +20,6 @@ import software.coley.recaf.services.transform.CollectionTransformer;
 import software.coley.recaf.services.transform.JvmClassTransformer;
 import software.coley.recaf.services.transform.JvmTransformerContext;
 import software.coley.recaf.services.transform.TransformationException;
-import software.coley.recaf.services.workspace.WorkspaceManager;
 import software.coley.recaf.util.analysis.Nullness;
 import software.coley.recaf.util.analysis.ReAnalyzer;
 import software.coley.recaf.util.analysis.ReInterpreter;
@@ -48,15 +47,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Dependent
 public class StaticValueCollectionTransformer implements JvmClassTransformer, CollectionTransformer, GetStaticLookup {
+	public static final String IDENTIFIER = "peephole.data.staticcollect";
+
 	private final Map<String, StaticValues> classValues = new ConcurrentHashMap<>();
 	private final Map<String, EffectivelyFinalFields> classFinals = new ConcurrentHashMap<>();
 	private final InheritanceGraphService graphService;
-	private final WorkspaceManager workspaceManager;
 	private InheritanceGraph inheritanceGraph;
 
 	@Inject
-	public StaticValueCollectionTransformer(@Nonnull WorkspaceManager workspaceManager, @Nonnull InheritanceGraphService graphService) {
-		this.workspaceManager = workspaceManager;
+	public StaticValueCollectionTransformer(@Nonnull InheritanceGraphService graphService) {
 		this.graphService = graphService;
 	}
 
@@ -223,8 +222,8 @@ public class StaticValueCollectionTransformer implements JvmClassTransformer, Co
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Static value collection";
+	public String identifier() {
+		return IDENTIFIER;
 	}
 
 	/**

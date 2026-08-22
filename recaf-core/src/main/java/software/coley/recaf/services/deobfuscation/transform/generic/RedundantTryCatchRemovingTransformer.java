@@ -23,6 +23,7 @@ import software.coley.recaf.services.transform.ClassTransformer;
 import software.coley.recaf.services.transform.JvmClassTransformer;
 import software.coley.recaf.services.transform.JvmTransformerContext;
 import software.coley.recaf.services.transform.TransformationException;
+import software.coley.recaf.services.transform.TransformationParameter;
 import software.coley.recaf.util.AsmInsnUtil;
 import software.coley.recaf.util.Types;
 import software.coley.recaf.util.analysis.value.ArrayValue;
@@ -60,6 +61,8 @@ import static org.objectweb.asm.Opcodes.*;
  */
 @Dependent
 public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer {
+	public static final String IDENTIFIER = "peephole.flow.redundantcatch";
+
 	private static final String EX_NPE = "java/lang/NullPointerException";
 	private static final String EX_ASE = "java/lang/ArrayStoreException";
 	private static final String EX_AIOOBE = "java/lang/ArrayIndexOutOfBoundsException";
@@ -68,9 +71,15 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 	private static final String EX_CCE = "java/lang/ClassCastException";
 	private static final String EX_AE = "java/lang/ArithmeticException";
 
+	public static final String KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS = IDENTIFIER + ".delete-junk-workspace-exceptions";
+	private static final boolean DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS = true;
+	private static final TransformationParameter<Boolean> DELETE_JUNK_WORKSPACE_EXCEPTIONS_PARAMETER =
+			new TransformationParameter<>(KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS, boolean.class, DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS);
+
 	private final InheritanceGraphService graphService;
 	private InheritanceGraph inheritanceGraph;
 	private ExceptionCollectionTransformer exceptionCollector;
+	private boolean deleteJunkWorkspaceExceptions;
 
 	@Inject
 	public RedundantTryCatchRemovingTransformer(@Nonnull InheritanceGraphService graphService) {
@@ -78,8 +87,10 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 	}
 
 	@Override
-	public void setup(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace) {
+	public void setup(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace) throws TransformationException {
 		inheritanceGraph = graphService.getOrCreateInheritanceGraph(workspace);
+		exceptionCollector = context.getTransformer(ExceptionCollectionTransformer.class);
+		deleteJunkWorkspaceExceptions = context.getParameters().getBoolean(KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS, DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS);
 	}
 
 	@Override
@@ -88,7 +99,6 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 	                      @Nonnull JvmClassInfo initialClassState) throws TransformationException {
 		boolean dirty = false;
 		ClassNode node = context.getNode(bundle, initialClassState);
-		exceptionCollector = context.getTransformer(ExceptionCollectionTransformer.class);
 		for (MethodNode method : node.methods) {
 			// Skip methods that have no code or no try-catch blocks, as they can't have redundant entries.
 			if (method.instructions == null || method.instructions.size() == 0)
@@ -103,6 +113,15 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 			} catch (Throwable t) {
 				throw new TransformationException("Error encountered when removing redundant try-catch blocks", t);
 			}
+		}
+
+		if (deleteJunkWorkspaceExceptions) {
+			// Check if this class is an exception.
+			// If it is, check if it is ever thrown in the workspace, then mark it for deletion.
+			String className = initialClassState.getName();
+			if (inheritanceGraph.isAssignableFrom("java/lang/Throwable", className)
+					&& isWorkspaceExceptionNeverThrown(className))
+				context.markClassForRemoval(initialClassState);
 		}
 
 		// If we changed anything, we need to update the class node and mark frames for recomputation.
@@ -120,8 +139,14 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 
 	@Nonnull
 	@Override
-	public String name() {
-		return "Redundant try-catch removal";
+	public String identifier() {
+		return IDENTIFIER;
+	}
+
+	@Nonnull
+	@Override
+	public List<TransformationParameter<?>> getParameterDefinitions() {
+		return List.of(DELETE_JUNK_WORKSPACE_EXCEPTIONS_PARAMETER);
 	}
 
 	/**

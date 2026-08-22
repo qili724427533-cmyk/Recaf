@@ -57,7 +57,7 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 	private Supplier<GetStaticLookup> getStaticLookupSupplier = BasicGetStaticLookup::new;
 	private Supplier<InvokeVirtualLookup> invokeVirtualLookupSupplier = BasicInvokeVirtualLookup::new;
 	private Supplier<InvokeStaticLookup> invokeStaticLookupSupplier = BasicInvokeStaticLookup::new;
-	private boolean dropFaultyClasses; // For debugging, not exposed publicly.
+	private boolean dropFaultyClasses;
 
 	/**
 	 * Constructs a new context from an array of transformers.
@@ -110,6 +110,22 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 	}
 
 	/**
+	 * @param dropFaultyClasses
+	 * 		When {@code true}, classes that fail to be written back to bytecode are logged and omitted from the
+	 * 		transformation results instead of aborting the whole run with a {@link TransformationException}.
+	 */
+	public void setDropFaultyClasses(boolean dropFaultyClasses) {
+		this.dropFaultyClasses = dropFaultyClasses;
+	}
+
+	/**
+	 * @return {@code true} when classes that fail to be written back are dropped instead of aborting the run.
+	 */
+	public boolean isDropFaultyClasses() {
+		return dropFaultyClasses;
+	}
+
+	/**
 	 * Builds the map of initial transformed class paths to their final transformed states.
 	 * <br>
 	 * The map keys are existing workspace paths the respective classes.
@@ -131,7 +147,7 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 				if (data.node != null) {
 					// Emit bytecode from the current node
 					boolean recompute = recomputeFrameClasses.contains(data.node.name);
-					int flags = recompute && !dropFaultyClasses ? ClassWriter.COMPUTE_FRAMES : 0;
+					int flags = recompute ? ClassWriter.COMPUTE_FRAMES : 0;
 					ClassReader reader = data.initialClass.getClassReader(); // Copy const-pool + bootstrap methods
 					ClassWriter writer = new WorkspaceClassWriter(inheritanceGraph, reader, flags);
 					try {
