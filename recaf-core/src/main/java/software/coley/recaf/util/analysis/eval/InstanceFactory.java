@@ -3,6 +3,7 @@ package software.coley.recaf.util.analysis.eval;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import software.coley.recaf.util.analysis.ReFrame;
@@ -25,7 +26,9 @@ import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -36,6 +39,8 @@ import java.io.OutputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
@@ -60,6 +65,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 
 /**
  * Factory for creating real instances of supported types and handling method calls on them.
@@ -70,6 +76,7 @@ public class InstanceFactory extends BasicLookupUtils {
 	private final Map<String, InstanceMapper> mappers = new HashMap<>();
 	private final Map<String, MethodInvokeHandler<?>> methodHandlers = new HashMap<>();
 	private final Map<String, MethodInvokeStaticHandler> staticMethodHandlers = new HashMap<>();
+	private final Map<String, Supplier<ReValue>> staticFieldValues = new HashMap<>();
 	private final Set<String> supportedTypes = new HashSet<>();
 
 	/**
@@ -81,6 +88,7 @@ public class InstanceFactory extends BasicLookupUtils {
 
 		registerStaticMappers();
 		registerCollectionStaticMappers();
+		registerStaticFieldValues();
 		registerStaticMethodHandlers();
 
 		registerMethodHandlers();
@@ -1119,6 +1127,7 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)))));
+		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([BII)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
 		registerMethodHandler("javax/crypto/Cipher", "init", "(ILjava/security/Key;)V", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> {
 			receiver.init(i((IntValue) args.get(0)), requireRealInstance(args.get(1), Key.class));
 			return null;
@@ -1129,6 +1138,22 @@ public class InstanceFactory extends BasicLookupUtils {
 				arrb(receiver.update(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
 		registerMethodHandler("javax/crypto/Cipher", "doFinal", "()[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) ->
 				arrb(receiver.doFinal()));
+
+		// javax.crypto.Mac
+		registerMethodHandler("javax/crypto/Mac", "init", "(Ljava/security/Key;)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
+			receiver.init(requireRealInstance(args.get(0), Key.class));
+			return null;
+		});
+		registerMethodHandler("javax/crypto/Mac", "update", "([B)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
+			receiver.update(arrb((ArrayValue) args.get(0)));
+			return null;
+		});
+		registerMethodHandler("javax/crypto/Mac", "update", "([BII)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
+			receiver.update(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			return null;
+		});
+		registerMethodHandler("javax/crypto/Mac", "doFinal", "()[B", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> arrb(receiver.doFinal()));
+		registerMethodHandler("javax/crypto/Mac", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)))));
 
 		// java.security.SecureRandom
 		registerMethodHandler("java/security/SecureRandom", "nextBytes", "([B)V", (ReFrame frame, ReValue host, SecureRandom receiver, List<ReValue> args) -> {
@@ -1404,6 +1429,7 @@ public class InstanceFactory extends BasicLookupUtils {
 	private void registerCtorMappers() {
 		// java.lang.String
 		registerMapper(String.class, "([BLjava/lang/String;)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), str((StringValue) parameters.get(1))));
+		registerMapper(String.class, "([BLjava/nio/charset/Charset;)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), requireRealInstance(parameters.get(1), Charset.class)));
 		registerMapper(String.class, "([BII)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
 		registerMapper(String.class, "([B)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0))));
 		registerMapper(String.class, "([BB)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), b((IntValue) parameters.get(1))));
@@ -1482,6 +1508,8 @@ public class InstanceFactory extends BasicLookupUtils {
 
 		// javax.crypto.spec
 		registerMapper(SecretKeySpec.class, "([BLjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb((ArrayValue) parameters.get(0)), str((StringValue) parameters.get(1))));
+		registerMapper(GCMParameterSpec.class, "(I[B)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1))));
+		registerMapper(GCMParameterSpec.class, "(I[BII)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
 		registerMapper(IvParameterSpec.class, "([B)V", (host, parameters) -> new IvParameterSpec(arrb((ArrayValue) parameters.get(0))));
 
 		// javax.crypto.spec.PBEKeySpec
@@ -1492,6 +1520,57 @@ public class InstanceFactory extends BasicLookupUtils {
 		// javax.crypto streams
 		registerMapper(CipherInputStream.class, "(Ljava/io/InputStream;Ljavax/crypto/Cipher;)V", (host, parameters) -> new CipherInputStream(requireRealInstance(parameters.get(0), InputStream.class), requireRealInstance(parameters.get(1), Cipher.class)));
 		registerMapper(CipherOutputStream.class, "(Ljava/io/OutputStream;Ljavax/crypto/Cipher;)V", (host, parameters) -> new CipherOutputStream(requireRealInstance(parameters.get(0), OutputStream.class), requireRealInstance(parameters.get(1), Cipher.class)));
+	}
+
+	/**
+	 * Registers the static constants whose values are safe and deterministic for evaluator use.
+	 */
+	private void registerStaticFieldValues() {
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_8);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.US_ASCII:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.US_ASCII);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.ISO_8859_1:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.ISO_8859_1);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_16BE:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_16BE);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_16LE:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_16LE);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_16:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_16);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_32BE:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_32BE);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_32LE:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_32LE);
+			return value;
+		});
+		staticFieldValues.put("java/nio/charset/StandardCharsets.UTF_32:Ljava/nio/charset/Charset;", () -> {
+			InstancedObjectValue<Charset> value = new InstancedObjectValue<>(Type.getObjectType("java/nio/charset/Charset"));
+			value.setRealInstance(StandardCharsets.UTF_32);
+			return value;
+		});
 	}
 
 	/**
@@ -1515,6 +1594,9 @@ public class InstanceFactory extends BasicLookupUtils {
 
 		// javax.crypto.Cipher
 		registerStaticMapper(Cipher.class, "getInstance(Ljava/lang/String;)Ljavax/crypto/Cipher;", (host, parameters) -> Cipher.getInstance(str((StringValue) parameters.get(0))));
+
+		// javax.crypto.Mac
+		registerStaticMapper(Mac.class, "getInstance(Ljava/lang/String;)Ljavax/crypto/Mac;", (host, parameters) -> Mac.getInstance(str((StringValue) parameters.get(0))));
 
 		// javax.crypto.KeyGenerator
 		registerStaticMapper(KeyGenerator.class, "getInstance(Ljava/lang/String;)Ljavax/crypto/KeyGenerator;", (host, parameters) -> KeyGenerator.getInstance(str((StringValue) parameters.get(0))));
@@ -1788,6 +1870,20 @@ public class InstanceFactory extends BasicLookupUtils {
 		for (int i = 0; i < entries.length; i++)
 			mapEntries[i] = (Map.Entry<?, ?>) entries[i];
 		return Map.ofEntries(mapEntries);
+	}
+
+	/**
+	 * Finds a deterministic model for a static field access.
+	 *
+	 * @param field
+	 * 		Field instruction to find a value for.
+	 *
+	 * @return Fresh modeled value, or {@code null} when the field is unsupported.
+	 */
+	@Nullable
+	public ReValue getStaticFieldValue(@Nonnull FieldInsnNode field) {
+		Supplier<ReValue> supplier = staticFieldValues.get(field.owner + '.' + field.name + ':' + field.desc);
+		return supplier == null ? null : supplier.get();
 	}
 
 	/**

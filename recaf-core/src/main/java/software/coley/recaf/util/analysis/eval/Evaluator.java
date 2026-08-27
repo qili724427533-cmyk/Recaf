@@ -1445,6 +1445,13 @@ public class Evaluator {
 							yield insn.getNext();
 						}
 
+						// Check if the field is modeled by the instance factory, which can handle some special cases.
+						ReValue modeled = instanceFactory.getStaticFieldValue(fieldInsn);
+						if (modeled != null) {
+							push(modeled);
+							yield insn.getNext();
+						}
+
 						// Fall back to normal execution, which can handle some remaining cases.
 						execute(insn, interpreter);
 						yield insn.getNext();
