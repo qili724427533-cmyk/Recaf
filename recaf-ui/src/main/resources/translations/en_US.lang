@@ -640,6 +640,7 @@ deobf.error.preset.title=Preset save failed
 deobf.error.preset.header=The deobfuscation preset could not be saved
 deobf.error.preset.content=Choose a different preset name and try again.
 deobf.peephole.data.callinline=Call result inlining
+deobf.peephole.data.callinline.evaluate-class-initializers=Evaluate static initializers
 deobf.peephole.data.callinline.max-steps=Maximum evaluation steps
 deobf.peephole.data.exceptioncollect=Exception metadata collection
 deobf.peephole.data.staticcollect=Static value collection

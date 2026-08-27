@@ -7,9 +7,12 @@ import software.coley.recaf.services.deobfuscation.transform.generic.GotoInlinin
 import software.coley.recaf.services.deobfuscation.transform.generic.OpaqueConstantFoldingTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.OpaquePredicateFoldingTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.VariableFoldingTransformer;
+import software.coley.recaf.services.transform.JvmTransformResult;
+import software.coley.recaf.services.transform.TransformationParameters;
 import software.coley.recaf.util.StringUtil;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -1695,6 +1698,71 @@ public class FoldingDeobfuscationTest extends TransformerTestBase {
 		validateBeforeAfterDecompile(asm, List.of(CallResultInliningTransformer.class),
 				"System.out.println(Example.decrypt(\"\\u362f\\u3602\\u360b\\u360b\\u3608\\u3647\\u3610\\u3608\\u3615\\u360b\\u3603\", 13927));",
 				"System.out.println(\"Hello world\");");
+	}
+
+	@Test
+	void inlineClassInitializedStaticArrayAccess() {
+		String asm = """
+				.super java/lang/Object
+				.class Example {
+					.field private static final values [Ljava/lang/String;
+				
+					.method static <clinit> ()V {
+					    code: {
+					    A:
+					        iconst_1
+					        anewarray java/lang/String
+					        dup
+					        iconst_0
+					        ldc "Hello"
+					        aastore
+					        putstatic Example.values [Ljava/lang/String;
+					        return
+					    B:
+					    }
+					}
+				
+					.method static accessor ()Ljava/lang/String; {
+					    code: {
+					    A:
+					        getstatic Example.values [Ljava/lang/String;
+					        iconst_0
+					        aaload
+					        areturn
+					    B:
+					    }
+					}
+				
+					.method static example ()Ljava/lang/String; {
+					    code: {
+					    A:
+					        invokestatic Example.accessor ()Ljava/lang/String;
+					        areturn
+					    B:
+					    }
+					}
+				}
+				""";
+		assemble(asm, true);
+
+		// Default parameters do not initialize static state, so the accessor call will not be inlined.
+		JvmTransformResult defaultResult = assertDoesNotThrow(() ->
+				newApplier().transformJvm(List.of(CallResultInliningTransformer.class)));
+		assertTrue(defaultResult.getTransformerFailures().isEmpty(), "There were transformation failures");
+		assertTrue(defaultResult.getTransformedClasses().isEmpty(), "Class initialization must remain disabled by default");
+
+		// When specifying the parameter to evaluate class initializers, the accessor call should be inlined.
+		TransformationParameters parameters = new TransformationParameters(Map.of(
+				CallResultInliningTransformer.KEY_EVALUATE_CLASS_INITIALIZERS, true));
+		JvmTransformResult initializedResult = assertDoesNotThrow(() ->
+				newApplier().transformJvm(List.of(CallResultInliningTransformer.class), parameters));
+		assertTrue(initializedResult.getTransformerFailures().isEmpty(), "There were transformation failures");
+		assertEquals(1, initializedResult.getTransformedClasses().size(), "Expected the initialized accessor call to be inlined");
+
+		// Validate the call gets inlined.
+		String disassembly = disassembleTransformed(initializedResult, true);
+		assertEquals(0, StringUtil.count("invokestatic Example.accessor", disassembly));
+		assertEquals(2, StringUtil.count("ldc \"Hello\"", disassembly));
 	}
 
 	@Test
