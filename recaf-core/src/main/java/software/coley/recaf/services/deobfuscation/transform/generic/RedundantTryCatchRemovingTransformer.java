@@ -14,6 +14,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TryCatchBlockNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Frame;
 import software.coley.recaf.info.JvmClassInfo;
 import software.coley.recaf.services.inheritance.InheritanceGraph;
@@ -173,7 +174,9 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 		List<TryCatchState> originalState = snapshotStates(instructions, method.tryCatchBlocks);
 
 		// Pruning occurs in multiple passes to allow later passes to take advantage of the results of earlier ones.
-		List<TryCatchBlockNode> tryCatches = mergeContinuousRanges(instructions, method.tryCatchBlocks);
+		List<TryCatchBlockNode> tryCatches = new ArrayList<>(method.tryCatchBlocks);
+		tryCatches.removeIf(block -> isTransparentRethrowHandler(instructions, block, method.tryCatchBlocks));
+		tryCatches = mergeContinuousRanges(instructions, tryCatches);
 		tryCatches = removeExactDuplicates(instructions, tryCatches);
 		tryCatches = removeShadowedRanges(instructions, tryCatches);
 
@@ -190,6 +193,126 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 		method.tryCatchBlocks.clear();
 		method.tryCatchBlocks.addAll(tryCatches);
 		context.pruneDeadCode(declaringClass, method);
+		return true;
+	}
+
+	/**
+	 * @param instructions
+	 * 		Method instructions.
+	 * @param candidate
+	 * 		Try-catch block to inspect.
+	 * @param allBlocks
+	 * 		All try-catch blocks in the method.
+	 *
+	 * @return {@code true} when the try-catch block is a transparent rethrow handler that can be removed without changing behavior.
+	 */
+	private static boolean isTransparentRethrowHandler(@Nonnull InsnList instructions,
+	                                                   @Nonnull TryCatchBlockNode candidate,
+	                                                   @Nonnull List<TryCatchBlockNode> allBlocks) {
+		// Sanity check, handler must be present in the instruction list to be a valid candidate.
+		int handlerIndex = instructions.indexOf(candidate.handler);
+		if (handlerIndex < 0)
+			return false;
+
+		// It is impossible to have a rethrow handler with less than 3 instructions, since the minimum shape is:
+		// - astore X
+		// - aload X
+		// - athrow
+		if (instructions.size() < 3)
+			return false;
+
+		// A handler shared by multiple ranges may be intentional code even when one edge is redundant.
+		int sharedCount = 0;
+		for (TryCatchBlockNode block : allBlocks)
+			if (block.handler == candidate.handler)
+				sharedCount++;
+		if (sharedCount != 1)
+			return false;
+
+		// Build normal control-flow edges only (no exception edges) so the reachability walk below
+		// reflects application flow, not the exception edge we are considering removing.
+		Int2ObjectMap<List<Integer>> successors = new Int2ObjectMap<>(instructions.size());
+		Int2ObjectMap<List<Integer>> predecessors = new Int2ObjectMap<>(instructions.size());
+		MethodNode flowMethod = new MethodNode();
+		flowMethod.instructions = instructions;
+		flowMethod.tryCatchBlocks = Collections.emptyList();
+		AsmInsnUtil.populateFlowMaps(flowMethod, successors, predecessors, false);
+
+		// Mark everything application control-flow can reach from the method entry.
+		// Anything reachable must survive the removal of the exception edge, since it is live application code.
+		boolean[] reachable = new boolean[instructions.size()];
+		reachable[0] = true;
+		Deque<Integer> queue = new ArrayDeque<>();
+		queue.add(0);
+		while (!queue.isEmpty()) {
+			int current = queue.removeFirst();
+			for (int next : successors.getOrDefault(current, Collections.emptyList()))
+				if (next >= 0 && next < reachable.length && !reachable[next]) {
+					reachable[next] = true;
+					queue.addLast(next);
+				}
+		}
+
+		// Handler must not be reachable by normal application flow, otherwise it is not a transparent rethrow.
+		if (reachable[handlerIndex])
+			return false;
+
+		// If any reachable instruction has an edge into the handler, treat the
+		// handler as reachable application code rather than risk deleting a live rethrow.
+		for (int predecessor : predecessors.getOrDefault(handlerIndex, Collections.emptyList()))
+			if (predecessor >= 0 && predecessor < reachable.length && reachable[predecessor])
+				return false;
+
+		// Collect the handler body up to its terminating athrow.
+		// Only these instructions become dead code if the exception-table edge is removed.
+		List<Integer> bodyIndices = new ArrayList<>();
+		List<AbstractInsnNode> realInstructions = new ArrayList<>(3);
+		for (AbstractInsnNode current = candidate.handler; current != null; current = current.getNext()) {
+			int index = instructions.indexOf(current);
+			if (index < 0)
+				return false;
+			bodyIndices.add(index);
+
+			// Skip labels/metadata.
+			if (current.getOpcode() < 0)
+				continue;
+			realInstructions.add(current);
+
+			// Stop at the terminating athrow, or once three executable instructions have been seen since
+			// no transparent handler shape is longer than that.
+			if (current.getOpcode() == ATHROW || realInstructions.size() >= 3)
+				break;
+		}
+
+		// Only two handler shapes are transparent:
+		// - Immediate throw of the caught exception
+		// - Identity variable store/load then throw
+		boolean direct = realInstructions.size() == 1 && realInstructions.get(0).getOpcode() == ATHROW;
+		boolean identity = realInstructions.size() == 3
+				&& realInstructions.get(0).getOpcode() == ASTORE
+				&& realInstructions.get(1).getOpcode() == ALOAD
+				&& realInstructions.get(2).getOpcode() == ATHROW
+				&& realInstructions.get(0) instanceof VarInsnNode first
+				&& realInstructions.get(1) instanceof VarInsnNode second
+				&& first.var == second.var;
+		if (!direct && !identity)
+			return false;
+
+		// A normal edge into any part of the body would make this real application control flow, and
+		// removing the exception edge would then delete instructions that application flow executes.
+		Set<Integer> body = new HashSet<>(bodyIndices);
+		for (int bodyIndex : bodyIndices) {
+			if (reachable[bodyIndex])
+				return false;
+			for (int predecessor : predecessors.getOrDefault(bodyIndex, Collections.emptyList()))
+				if (predecessor >= 0
+						&& predecessor < reachable.length
+						&& reachable[predecessor]
+						&& !body.contains(predecessor))
+					return false;
+		}
+
+		// The entry only ever forwards to an unconditional rethrow, so dropping it preserves observable behavior.
 		return true;
 	}
 

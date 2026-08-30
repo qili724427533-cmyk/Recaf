@@ -337,6 +337,94 @@ public class TryCatchDeobfuscationTest extends TransformerTestBase {
 	}
 
 	@Test
+	void retainSideEffectingRethrowHandler() {
+		// If we have a catch block with a rethrow but also some side-effecting code, then we cannot remove the catch block.
+		String asm = """
+				.method public static example ()V {
+					exceptions: {
+				       {  A,  B,  C, Ljava/lang/Exception; }
+				    },
+				    code: {
+				    A:
+				        invokestatic Foo.mayFail ()V
+				    B:
+				        goto END
+				    C:
+				        astore ex
+				        aload ex
+				        dup
+				        invokestatic Foo.observe (Ljava/lang/Throwable;)V
+				        athrow
+				    END:
+				        return
+				    }
+				}
+				""";
+		validateNoTransformation(asm, List.of(RedundantTryCatchRemovingTransformer.class));
+	}
+
+	@Test
+	void removeDirectRethrowHandler() {
+		// If we have code like this:
+		// try {
+		//     Foo.mayFail();
+		// } catch (Exception ex) {
+		//     throw ex;
+		// }
+		// Then the catch block is effectively a no-op and can be removed.
+		String asm = """
+				.method public static example ()V {
+					exceptions: {
+				       {  A,  B,  C, Ljava/lang/Exception; }
+				    },
+				    code: {
+				    A:
+				        invokestatic Foo.mayFail ()V
+				    B:
+				        goto END
+				    C:
+				        athrow
+				    END:
+				        return
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(RedundantTryCatchRemovingTransformer.class), dis -> {
+			assertFalse(dis.contains("exceptions:"), "Direct rethrow handler should be removed");
+			assertFalse(dis.contains("athrow"), "Unreferenced direct rethrow should be removed");
+		});
+	}
+
+	@Test
+	void removeIdentityRethrowHandler() {
+		// Same idea as above.
+		String asm = """
+				.method public static example ()V {
+					exceptions: {
+				       {  A,  B,  C, Ljava/lang/Exception; }
+				    },
+				    code: {
+				    A:
+				        invokestatic Foo.mayFail ()V
+				    B:
+				        goto END
+				    C:
+				        astore ex
+				        aload ex
+				        athrow
+				    END:
+				        return
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(RedundantTryCatchRemovingTransformer.class), dis -> {
+			assertFalse(dis.contains("exceptions:"), "Identity rethrow handler should be removed");
+			assertFalse(dis.contains("athrow"), "Unreferenced identity rethrow should be removed");
+			assertFalse(dis.contains("astore ex"), "Unreferenced identity rethrow should be removed");
+		});
+	}
+
+	@Test
 	void redundantCatchOfTypeNeverThrownInWorkspace() {
 		// If we observe 'BogusException' defined in the workspace and know it is never actually constructed
 		// then any exception block with it is ALSO never going to be handled. These can be removed.
