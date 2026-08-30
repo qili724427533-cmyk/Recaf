@@ -72,7 +72,7 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 	private static final String EX_AE = "java/lang/ArithmeticException";
 
 	public static final String KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS = IDENTIFIER + ".delete-junk-workspace-exceptions";
-	private static final boolean DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS = true;
+	private static final boolean DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS = false;
 	private static final TransformationParameter<Boolean> DELETE_JUNK_WORKSPACE_EXCEPTIONS_PARAMETER =
 			new TransformationParameter<>(KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS, boolean.class, DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS);
 
