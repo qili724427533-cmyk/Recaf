@@ -363,6 +363,26 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 			if ((nextFrame == null || nextFrame.getStackSize() <= 0) && !isReturn)
 				continue;
 
+			// Repeated unknown operations cannot become known by expanding the same straight-line chain.
+			ReValue resultValue = isReturn ?
+					frame.getStack(frame.getStackSize() - 1) :
+					nextFrame.getStack(nextFrame.getStackSize() - 1);
+			AbstractInsnNode nextInstruction = instruction.getNext();
+			boolean repeatedUnknownOperation = !resultValue.hasKnownValue()
+					&& !isReturn
+					&& !isLabel(nextInstruction)
+					&& nextInstruction != null
+					&& nextInstruction.getOpcode() == opcode;
+			if (repeatedUnknownOperation) {
+				// If we have a repeated unknown operation, see if it is a redundant operation.
+				// Aside from that, we cannot do anything with it since we don't know the result of the operation.
+				if (foldRedundantOperations(instructions, instruction, frame))
+					dirty = true;
+				else
+					unknownState = i;
+				continue;
+			}
+
 			// Walk backwards from this point and try and find a sequence of instructions that
 			// will create the expected stack state we see for this operation instruction.
 			boolean validSequence = true;
