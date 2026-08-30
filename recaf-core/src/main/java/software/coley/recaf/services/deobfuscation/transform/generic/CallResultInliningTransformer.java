@@ -91,7 +91,13 @@ public class CallResultInliningTransformer implements JvmClassTransformer {
 			if (instructions == null)
 				continue;
 
-			Frame<ReValue>[] frames = context.analyze(inheritanceGraph, node, method);
+			Frame<ReValue>[] frames;
+			try {
+				frames = context.analyze(inheritanceGraph, node, method);
+			} catch (TransformationException ex) {
+				// Analysis failed, skip this method.
+				continue;
+			}
 			for (int i = instructions.size() - 1; i >= 0; i--) {
 				AbstractInsnNode insn = instructions.get(i);
 				if (insn.getOpcode() == Opcodes.INVOKESTATIC && insn instanceof MethodInsnNode min) {
