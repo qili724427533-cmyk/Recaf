@@ -57,6 +57,7 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 	private Supplier<GetStaticLookup> getStaticLookupSupplier = BasicGetStaticLookup::new;
 	private Supplier<InvokeVirtualLookup> invokeVirtualLookupSupplier = BasicInvokeVirtualLookup::new;
 	private Supplier<InvokeStaticLookup> invokeStaticLookupSupplier = BasicInvokeStaticLookup::new;
+	private boolean reuseConstantPool = true;
 	private boolean dropFaultyClasses;
 
 	/**
@@ -126,6 +127,27 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 	}
 
 	/**
+	 * @return {@code true} when the constant pool of the original class is reused when writing back to bytecode.
+	 * {@code false} to always regenerate the constant pool when writing back to bytecode.
+	 */
+	public boolean isReuseConstantPool() {
+		return reuseConstantPool;
+	}
+
+	/**
+	 * Defaults to {@code true} to reuse, as most transformations should not be affected by the reused pool.
+	 * It's slightly faster to reuse the pool, but there are some side effects like some meta-data being copied
+	 * even if the transformer intentionally removed it.
+	 *
+	 * @param reuseConstantPool
+	 *        {@code true} when the constant pool of the original class is reused when writing back to bytecode.
+	 *        {@code false} to always regenerate the constant pool when writing back to bytecode.
+	 */
+	public void setReuseConstantPool(boolean reuseConstantPool) {
+		this.reuseConstantPool = reuseConstantPool;
+	}
+
+	/**
 	 * Builds the map of initial transformed class paths to their final transformed states.
 	 * <br>
 	 * The map keys are existing workspace paths the respective classes.
@@ -148,7 +170,7 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 					// Emit bytecode from the current node
 					boolean recompute = recomputeFrameClasses.contains(data.node.name);
 					int flags = recompute ? ClassWriter.COMPUTE_FRAMES : 0;
-					ClassReader reader = data.initialClass.getClassReader(); // Copy const-pool + bootstrap methods
+					ClassReader reader = reuseConstantPool ? data.initialClass.getClassReader() : null;
 					ClassWriter writer = new WorkspaceClassWriter(inheritanceGraph, reader, flags);
 					try {
 						if (recompute)
