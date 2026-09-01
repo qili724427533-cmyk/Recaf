@@ -202,11 +202,45 @@ public class Types {
 	 * @return Number of variable slots occupied by the parameters.
 	 */
 	public static int countParameterSlots(@Nonnull Type methodType) {
-		int size = 0;
 		Type[] methodArgs = methodType.getArgumentTypes();
-		for (Type arg : methodArgs)
+		return countParameterSlots(methodArgs);
+	}
+
+	/**
+	 * @param argumentTypes
+	 * 		Parsed method argument types.
+	 *
+	 * @return Number of variable slots occupied by the parameters.
+	 */
+	public static int countParameterSlots(@Nonnull Type[] argumentTypes) {
+		int size = 0;
+		for (Type arg : argumentTypes)
 			size += arg.getSize();
 		return size;
+	}
+
+	/**
+	 * @param isStatic
+	 * 		Whether the method is static.
+	 * @param methodType
+	 * 		Parsed method descriptor type.
+	 *
+	 * @return Number of variable slots occupied by the parameters, including {@code this} if non-static.
+	 */
+	public static int parameterEndSlot(boolean isStatic, @Nonnull Type methodType) {
+		return parameterEndSlot(isStatic, methodType.getArgumentTypes());
+	}
+
+	/**
+	 * @param isStatic
+	 * 		Whether the method is static.
+	 * @param argumentTypes
+	 * 		Parsed method argument types.
+	 *
+	 * @return Number of variable slots occupied by the parameters, including {@code this} if non-static.
+	 */
+	public static int parameterEndSlot(boolean isStatic, @Nonnull Type[] argumentTypes) {
+		return countParameterSlots(argumentTypes) + (isStatic ? 0 : 1);
 	}
 
 	/**
