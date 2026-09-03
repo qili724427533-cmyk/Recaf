@@ -683,7 +683,7 @@ public class Evaluator {
 		return switch (branching) {
 			case TAKEN -> ((JumpInsnNode) insn).label;
 			case NOT_TAKEN -> insn.getNext();
-			case UNKNOWN -> throw UnknownValueException.INSTANCE;
+			case UNKNOWN -> throw UnknownValueException.get();
 		};
 	}
 
@@ -716,7 +716,7 @@ public class Evaluator {
 	private IntValue requireKnownInt(@Nonnull ReValue value) throws UnknownValueException {
 		if (value instanceof IntValue intValue && intValue.hasKnownValue())
 			return intValue;
-		throw UnknownValueException.INSTANCE;
+		throw UnknownValueException.get();
 	}
 
 	/**
@@ -732,7 +732,7 @@ public class Evaluator {
 	private ObjectValue requireKnownNullness(@Nonnull ReValue value) throws UnknownValueException {
 		if (value instanceof ObjectValue objectValue && objectValue.nullness() != Nullness.UNKNOWN)
 			return objectValue;
-		throw UnknownValueException.INSTANCE;
+		throw UnknownValueException.get();
 	}
 
 	/**
@@ -797,7 +797,7 @@ public class Evaluator {
 				return Branching.NOT_TAKEN;
 		}
 
-		throw UnknownValueException.INSTANCE;
+		throw UnknownValueException.get();
 	}
 
 	/**
@@ -1960,6 +1960,11 @@ public class Evaluator {
 	/** Dummy exception to signal an unknown branch decision. */
 	public static final class UnknownValueException extends Exception {
 		private static final UnknownValueException INSTANCE = new UnknownValueException();
+
+		@Nonnull
+		public static UnknownValueException get() {
+			return INSTANCE;
+		}
 
 		private UnknownValueException() {}
 
