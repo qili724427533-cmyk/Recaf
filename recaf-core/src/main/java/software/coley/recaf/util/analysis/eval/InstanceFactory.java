@@ -124,6 +124,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/lang/String", "offsetByCodePoints", "(II)I", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> i(receiver.offsetByCodePoints(i((IntValue) args.get(0)), i((IntValue) args.get(1)))));
 		registerMethodHandler("java/lang/String", "getBytes", "()[B", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> arrb(receiver.getBytes()));
 		registerMethodHandler("java/lang/String", "getBytes", "(Ljava/lang/String;)[B", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> arrb(receiver.getBytes(str((StringValue) args.get(0)))));
+		registerMethodHandler("java/lang/String", "getBytes", "(Ljava/nio/charset/Charset;)[B", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> arrb(receiver.getBytes(requireRealInstance(args.get(0), Charset.class))));
 		registerMethodHandler("java/lang/String", "getBytes", "(II[BI)V", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> {
 			receiver.getBytes(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrb(args.get(2)), i((IntValue) args.get(3)));
 			return null;
