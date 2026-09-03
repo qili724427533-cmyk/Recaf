@@ -42,6 +42,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.KeySpec;
@@ -106,7 +107,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/lang/String", "toString", "()Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.toString()));
 		registerMethodHandler("java/lang/String", "hashCode", "()I", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> i(receiver.hashCode()));
 		registerMethodHandler("java/lang/String", "getChars", "(II[CI)V", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> {
-			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc((ArrayValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc(args.get(2)), i((IntValue) args.get(3)));
 			return null;
 		});
 		registerMethodHandler("java/lang/String", "compareTo", "(Ljava/lang/String;)I", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> i(receiver.compareTo(str((StringValue) args.get(0)))));
@@ -124,7 +125,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/lang/String", "getBytes", "()[B", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> arrb(receiver.getBytes()));
 		registerMethodHandler("java/lang/String", "getBytes", "(Ljava/lang/String;)[B", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> arrb(receiver.getBytes(str((StringValue) args.get(0)))));
 		registerMethodHandler("java/lang/String", "getBytes", "(II[BI)V", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> {
-			receiver.getBytes(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrb((ArrayValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.getBytes(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrb(args.get(2)), i((IntValue) args.get(3)));
 			return null;
 		});
 		registerMethodHandler("java/lang/String", "contentEquals", "(Ljava/lang/CharSequence;)Z", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> z(receiver.contentEquals(str((StringValue) args.get(0)))));
@@ -165,7 +166,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/lang/String", "indent", "(I)Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.indent(i((IntValue) args.get(0)))));
 		registerMethodHandler("java/lang/String", "stripIndent", "()Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.stripIndent()));
 		registerMethodHandler("java/lang/String", "translateEscapes", "()Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.translateEscapes()));
-		registerMethodHandler("java/lang/String", "formatted", "([Ljava/lang/Object;)Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.formatted(arrobj((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/lang/String", "formatted", "([Ljava/lang/Object;)Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.formatted(arrobj(args.get(0)))));
 		registerMethodHandler("java/lang/String", "intern", "()Ljava/lang/String;", (ReFrame frame, ReValue host, String receiver, List<ReValue> args) -> str(receiver.intern()));
 
 		// java.lang.StackTraceElement
@@ -192,11 +193,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "append", "([C)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
-			receiver.append(arrc((ArrayValue) args.get(0)));
+			receiver.append(arrc(args.get(0)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "append", "([CII)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
-			receiver.append(arrc((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.append(arrc(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "append", "(Ljava/lang/Object;)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
@@ -247,7 +248,7 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "insert", "(I[C)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
-			receiver.insert(i((IntValue) args.get(0)), arrc((ArrayValue) args.get(1)));
+			receiver.insert(i((IntValue) args.get(0)), arrc(args.get(1)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "insert", "(II)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
@@ -283,7 +284,7 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "insert", "(I[CII)Ljava/lang/StringBuilder;", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
-			receiver.insert(i((IntValue) args.get(0)), arrc((ArrayValue) args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.insert(i((IntValue) args.get(0)), arrc(args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "lastIndexOf", "(Ljava/lang/String;I)I", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> i(receiver.lastIndexOf(str((StringValue) args.get(0)), i((IntValue) args.get(1)))));
@@ -314,7 +315,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		});
 		registerMethodHandler("java/lang/StringBuilder", "length", "()I", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> i(receiver.length()));
 		registerMethodHandler("java/lang/StringBuilder", "getChars", "(II[CI)V", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> {
-			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc((ArrayValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc(args.get(2)), i((IntValue) args.get(3)));
 			return null;
 		});
 		registerMethodHandler("java/lang/StringBuilder", "charAt", "(I)C", (ReFrame frame, ReValue host, StringBuilder receiver, List<ReValue> args) -> c(receiver.charAt(i((IntValue) args.get(0)))));
@@ -359,11 +360,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "append", "([C)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
-			receiver.append(arrc((ArrayValue) args.get(0)));
+			receiver.append(arrc(args.get(0)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "append", "([CII)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
-			receiver.append(arrc((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.append(arrc(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "append", "(Z)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
@@ -403,7 +404,7 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "getChars", "(II[CI)V", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
-			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc((ArrayValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.getChars(i((IntValue) args.get(0)), i((IntValue) args.get(1)), arrc(args.get(2)), i((IntValue) args.get(3)));
 			return null;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "compareTo", "(Ljava/lang/StringBuffer;)I", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> i(receiver.compareTo(BasicLookupUtils.<StringBuffer>obj((ObjectValue) args.get(0)))));
@@ -414,11 +415,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "insert", "(I[CII)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
-			receiver.insert(i((IntValue) args.get(0)), arrc((ArrayValue) args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.insert(i((IntValue) args.get(0)), arrc(args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "insert", "(I[C)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
-			receiver.insert(i((IntValue) args.get(0)), arrc((ArrayValue) args.get(1)));
+			receiver.insert(i((IntValue) args.get(0)), arrc(args.get(1)));
 			return host;
 		});
 		registerMethodHandler("java/lang/StringBuffer", "insert", "(IF)Ljava/lang/StringBuffer;", (ReFrame frame, ReValue host, StringBuffer receiver, List<ReValue> args) -> {
@@ -604,7 +605,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/util/Random", "nextInt", "()I", (ReFrame frame, ReValue host, Random receiver, List<ReValue> args) -> i(receiver.nextInt()));
 		registerMethodHandler("java/util/Random", "nextInt", "(I)I", (ReFrame frame, ReValue host, Random receiver, List<ReValue> args) -> i(receiver.nextInt(i((IntValue) args.get(0)))));
 		registerMethodHandler("java/util/Random", "nextBytes", "([B)V", (ReFrame frame, ReValue host, Random receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			receiver.nextBytes(destination);
 			replaceByteArrayContents(frame, destinationValue, destination, 0, destination.length);
@@ -621,7 +622,7 @@ public class InstanceFactory extends BasicLookupUtils {
 
 		// java.security.SecureRandom
 		registerMapper(SecureRandom.class, "()V", (host, parameters) -> new SecureRandom());
-		registerMapper(SecureRandom.class, "([B)V", (host, parameters) -> new SecureRandom(arrb((ArrayValue) parameters.get(0))));
+		registerMapper(SecureRandom.class, "([B)V", (host, parameters) -> new SecureRandom(arrb(parameters.get(0))));
 
 		// java.util.List
 		registerMethodHandler("java/util/List", "remove", "(I)Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.remove(i((IntValue) args.get(0)))));
@@ -644,7 +645,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		});
 		registerMethodHandler("java/util/List", "subList", "(II)Ljava/util/List;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.subList(i((IntValue) args.get(0)), i((IntValue) args.get(1)))));
 		registerMethodHandler("java/util/List", "toArray", "()[Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray()));
-		registerMethodHandler("java/util/List", "toArray", "([Ljava/lang/Object;)[Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray(arrobj((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/util/List", "toArray", "([Ljava/lang/Object;)[Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray(arrobj(args.get(0)))));
 		registerMethodHandler("java/util/List", "contains", "(Ljava/lang/Object;)Z", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> z(receiver.contains(objl((ObjectValue) args.get(0)))));
 		registerMethodHandler("java/util/List", "set", "(ILjava/lang/Object;)Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.set(i((IntValue) args.get(0)), objl((ObjectValue) args.get(1)))));
 		registerMethodHandler("java/util/List", "getFirst", "()Ljava/lang/Object;", (ReFrame frame, ReValue host, List receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.getFirst()));
@@ -690,7 +691,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		});
 		registerMethodHandler("java/util/ArrayList", "subList", "(II)Ljava/util/List;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.subList(i((IntValue) args.get(0)), i((IntValue) args.get(1)))));
 		registerMethodHandler("java/util/ArrayList", "toArray", "()[Ljava/lang/Object;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray()));
-		registerMethodHandler("java/util/ArrayList", "toArray", "([Ljava/lang/Object;)[Ljava/lang/Object;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray(arrobj((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/util/ArrayList", "toArray", "([Ljava/lang/Object;)[Ljava/lang/Object;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.toArray(arrobj(args.get(0)))));
 		registerMethodHandler("java/util/ArrayList", "contains", "(Ljava/lang/Object;)Z", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> z(receiver.contains(objl((ObjectValue) args.get(0)))));
 		registerMethodHandler("java/util/ArrayList", "set", "(ILjava/lang/Object;)Ljava/lang/Object;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.set(i((IntValue) args.get(0)), objl((ObjectValue) args.get(1)))));
 		registerMethodHandler("java/util/ArrayList", "ensureCapacity", "(I)V", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> {
@@ -715,14 +716,14 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/util/ArrayList", "removeLast", "()Ljava/lang/Object;", (ReFrame frame, ReValue host, ArrayList receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.removeLast()));
 
 		// java.util.Base64$Encoder
-		registerMethodHandler("java/util/Base64$Encoder", "encode", "([B)[B", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> arrb(receiver.encode(arrb((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/util/Base64$Encoder", "encode", "([B)[B", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> arrb(receiver.encode(arrb(args.get(0)))));
 		registerMethodHandler("java/util/Base64$Encoder", "encode", "([B[B)I", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> {
 			// Original generation:
-			//  - i(receiver.encode(arrb((ArrayValue)args.get(0)), arrb((ArrayValue)args.get(1))))
-			ArrayValue destinationValue = (ArrayValue) args.get(1);
+			//  - i(receiver.encode(arrb(args.get(0)), arrb(args.get(1))))
+			ReValue destinationValue = args.get(1);
 			byte[] destination = arrb(destinationValue);
 			try {
-				int written = receiver.encode(arrb((ArrayValue) args.get(0)), destination);
+				int written = receiver.encode(arrb(args.get(0)), destination);
 				replaceByteArrayContents(frame, destinationValue, destination, 0, written);
 				return i(written);
 			} catch (Throwable t) {
@@ -733,19 +734,19 @@ public class InstanceFactory extends BasicLookupUtils {
 			}
 		});
 		registerMethodHandler("java/util/Base64$Encoder", "encode", "(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.encode(requireRealInstance(args.get(0), ByteBuffer.class))));
-		registerMethodHandler("java/util/Base64$Encoder", "encodeToString", "([B)Ljava/lang/String;", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> str(receiver.encodeToString(arrb((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/util/Base64$Encoder", "encodeToString", "([B)Ljava/lang/String;", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> str(receiver.encodeToString(arrb(args.get(0)))));
 		registerMethodHandler("java/util/Base64$Encoder", "withoutPadding", "()Ljava/util/Base64$Encoder;", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.withoutPadding()));
 		registerMethodHandler("java/util/Base64$Encoder", "wrap", "(Ljava/io/OutputStream;)Ljava/io/OutputStream;", (ReFrame frame, ReValue host, Base64.Encoder receiver, List<ReValue> args) -> new InstancedObjectValue<>(receiver.wrap(requireRealInstance(args.get(0), OutputStream.class))));
 
 		// java.util.Base64$Decoder
-		registerMethodHandler("java/util/Base64$Decoder", "decode", "([B)[B", (ReFrame frame, ReValue host, Base64.Decoder receiver, List<ReValue> args) -> arrb(receiver.decode(arrb((ArrayValue) args.get(0)))));
+		registerMethodHandler("java/util/Base64$Decoder", "decode", "([B)[B", (ReFrame frame, ReValue host, Base64.Decoder receiver, List<ReValue> args) -> arrb(receiver.decode(arrb(args.get(0)))));
 		registerMethodHandler("java/util/Base64$Decoder", "decode", "([B[B)I", (ReFrame frame, ReValue host, Base64.Decoder receiver, List<ReValue> args) -> {
 			// Original generation:
-			//  - i(receiver.decode(arrb((ArrayValue)args.get(0)), arrb((ArrayValue)args.get(1))))
-			ArrayValue destinationValue = (ArrayValue) args.get(1);
+			//  - i(receiver.decode(arrb(args.get(0)), arrb(args.get(1))))
+			ReValue destinationValue = args.get(1);
 			byte[] destination = arrb(destinationValue);
 			try {
-				int written = receiver.decode(arrb((ArrayValue) args.get(0)), destination);
+				int written = receiver.decode(arrb(args.get(0)), destination);
 				replaceByteArrayContents(frame, destinationValue, destination, 0, written);
 				return i(written);
 			} catch (Throwable t) {
@@ -809,8 +810,8 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "get", "([B)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
-			byte[] destination = arrb((ArrayValue) args.get(0));
+			ReValue destinationValue = args.get(0);
+			byte[] destination = arrb(args.get(0));
 			try {receiver.get(destination);} catch (Throwable t) {
 				if (destination != null)
 					replaceByteArrayContents(frame, destinationValue, destination, 0, destination.length);
@@ -822,8 +823,8 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMethodHandler("java/nio/ByteBuffer", "get", "(I)B", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> b(receiver.get(i((IntValue) args.get(0)))));
 		registerMethodHandler("java/nio/ByteBuffer", "get", "()B", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> b(receiver.get()));
 		registerMethodHandler("java/nio/ByteBuffer", "get", "([BII)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
-			byte[] destination = arrb((ArrayValue) args.get(0));
+			ReValue destinationValue = args.get(0);
+			byte[] destination = arrb(args.get(0));
 			try {receiver.get(destination, i((IntValue) args.get(1)), i((IntValue) args.get(2)));} catch (Throwable t) {
 				if (destination != null)
 					replaceByteArrayContents(frame, destinationValue, destination, i((IntValue) args.get(1)), i((IntValue) args.get(2)));
@@ -833,8 +834,8 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "get", "(I[B)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(1);
-			byte[] destination = arrb((ArrayValue) args.get(1));
+			ReValue destinationValue = args.get(1);
+			byte[] destination = arrb(args.get(1));
 			try {receiver.get(i((IntValue) args.get(0)), destination);} catch (Throwable t) {
 				if (destination != null)
 					replaceByteArrayContents(frame, destinationValue, destination, 0, destination.length);
@@ -844,8 +845,8 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "get", "(I[BII)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(1);
-			byte[] destination = arrb((ArrayValue) args.get(1));
+			ReValue destinationValue = args.get(1);
+			byte[] destination = arrb(args.get(1));
 			try {
 				receiver.get(i((IntValue) args.get(0)), destination, i((IntValue) args.get(2)), i((IntValue) args.get(3)));
 			} catch (Throwable t) {
@@ -869,19 +870,19 @@ public class InstanceFactory extends BasicLookupUtils {
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "put", "([B)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			receiver.put(arrb((ArrayValue) args.get(0)));
+			receiver.put(arrb(args.get(0)));
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "put", "(I[B)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			receiver.put(i((IntValue) args.get(0)), arrb((ArrayValue) args.get(1)));
+			receiver.put(i((IntValue) args.get(0)), arrb(args.get(1)));
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "put", "(I[BII)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			receiver.put(i((IntValue) args.get(0)), arrb((ArrayValue) args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
+			receiver.put(i((IntValue) args.get(0)), arrb(args.get(1)), i((IntValue) args.get(2)), i((IntValue) args.get(3)));
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "put", "([BII)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
-			receiver.put(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.put(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return host;
 		});
 		registerMethodHandler("java/nio/ByteBuffer", "put", "(B)Ljava/nio/ByteBuffer;", (ReFrame frame, ReValue host, ByteBuffer receiver, List<ReValue> args) -> {
@@ -1051,11 +1052,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 		registerMethodHandler("java/io/OutputStream", "write", "([B)V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)));
+			receiver.write(arrb(args.get(0)));
 			return null;
 		});
 		registerMethodHandler("java/io/OutputStream", "write", "([BII)V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.write(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return null;
 		});
 		registerMethodHandler("java/io/OutputStream", "flush", "()V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
@@ -1074,11 +1075,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 		registerMethodHandler("java/io/ByteArrayOutputStream", "write", "([B)V", (ReFrame frame, ReValue host, ByteArrayOutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)));
+			receiver.write(arrb(args.get(0)));
 			return null;
 		});
 		registerMethodHandler("java/io/ByteArrayOutputStream", "write", "([BII)V", (ReFrame frame, ReValue host, ByteArrayOutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.write(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return null;
 		});
 
@@ -1086,7 +1087,7 @@ public class InstanceFactory extends BasicLookupUtils {
 		//  - java.io.ByteArrayInputStream
 		registerMethodHandler("java/io/InputStream", "read", "()I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> i(receiver.read()));
 		registerMethodHandler("java/io/InputStream", "read", "([B)I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			int read;
 			try {
@@ -1100,7 +1101,7 @@ public class InstanceFactory extends BasicLookupUtils {
 			return i(read);
 		});
 		registerMethodHandler("java/io/InputStream", "read", "([BII)I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			int offset = i((IntValue) args.get(1));
 			int length = i((IntValue) args.get(2));
@@ -1121,21 +1122,25 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 
+		// java.security.MessageDigest
+		registerMethodHandler("java/security/MessageDigest", "digest", "()[B", (ReFrame frame, ReValue host, MessageDigest receiver, List<ReValue> args) -> arrb(receiver.digest()));
+		registerMethodHandler("java/security/MessageDigest", "digest", "([B)[B", (ReFrame frame, ReValue host, MessageDigest receiver, List<ReValue> args) -> arrb(receiver.digest(arrb(args.get(0)))));
+
 		// javax.crypto.Cipher
 		registerMethodHandler("javax/crypto/Cipher", "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> {
 			receiver.init(i((IntValue) args.get(0)), requireRealInstance(args.get(1), Key.class), requireRealInstance(args.get(2), AlgorithmParameterSpec.class));
 			return null;
 		});
-		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)))));
-		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([BII)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
+		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb(args.get(0)))));
+		registerMethodHandler("javax/crypto/Cipher", "doFinal", "([BII)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
 		registerMethodHandler("javax/crypto/Cipher", "init", "(ILjava/security/Key;)V", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) -> {
 			receiver.init(i((IntValue) args.get(0)), requireRealInstance(args.get(1), Key.class));
 			return null;
 		});
 		registerMethodHandler("javax/crypto/Cipher", "update", "([B)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) ->
-				arrb(receiver.update(arrb((ArrayValue) args.get(0)))));
+				arrb(receiver.update(arrb(args.get(0)))));
 		registerMethodHandler("javax/crypto/Cipher", "update", "([BII)[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) ->
-				arrb(receiver.update(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
+				arrb(receiver.update(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)))));
 		registerMethodHandler("javax/crypto/Cipher", "doFinal", "()[B", (ReFrame frame, ReValue host, Cipher receiver, List<ReValue> args) ->
 				arrb(receiver.doFinal()));
 
@@ -1145,26 +1150,26 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 		registerMethodHandler("javax/crypto/Mac", "update", "([B)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
-			receiver.update(arrb((ArrayValue) args.get(0)));
+			receiver.update(arrb(args.get(0)));
 			return null;
 		});
 		registerMethodHandler("javax/crypto/Mac", "update", "([BII)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
-			receiver.update(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.update(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return null;
 		});
 		registerMethodHandler("javax/crypto/Mac", "doFinal", "()[B", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> arrb(receiver.doFinal()));
-		registerMethodHandler("javax/crypto/Mac", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb((ArrayValue) args.get(0)))));
+		registerMethodHandler("javax/crypto/Mac", "doFinal", "([B)[B", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> arrb(receiver.doFinal(arrb(args.get(0)))));
 
 		// java.security.SecureRandom
 		registerMethodHandler("java/security/SecureRandom", "nextBytes", "([B)V", (ReFrame frame, ReValue host, SecureRandom receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			receiver.nextBytes(destination);
 			replaceByteArrayContents(frame, destinationValue, destination, 0, destination.length);
 			return null;
 		});
 		registerMethodHandler("java/security/SecureRandom", "setSeed", "([B)V", (ReFrame frame, ReValue host, SecureRandom receiver, List<ReValue> args) -> {
-			receiver.setSeed(arrb((ArrayValue) args.get(0)));
+			receiver.setSeed(arrb(args.get(0)));
 			return null;
 		});
 		registerMethodHandler("java/security/SecureRandom", "setSeed", "(J)V", (ReFrame frame, ReValue host, SecureRandom receiver, List<ReValue> args) -> {
@@ -1205,14 +1210,14 @@ public class InstanceFactory extends BasicLookupUtils {
 		// javax.crypto.CipherInputStream
 		registerMethodHandler("javax/crypto/CipherInputStream", "read", "()I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> i(receiver.read()));
 		registerMethodHandler("javax/crypto/CipherInputStream", "read", "([B)I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			int read = receiver.read(destination);
 			replaceByteArrayContents(frame, destinationValue, destination, 0, read);
 			return i(read);
 		});
 		registerMethodHandler("javax/crypto/CipherInputStream", "read", "([BII)I", (ReFrame frame, ReValue host, InputStream receiver, List<ReValue> args) -> {
-			ArrayValue destinationValue = (ArrayValue) args.get(0);
+			ReValue destinationValue = args.get(0);
 			byte[] destination = arrb(destinationValue);
 			int offset = i((IntValue) args.get(1));
 			int length = i((IntValue) args.get(2));
@@ -1232,11 +1237,11 @@ public class InstanceFactory extends BasicLookupUtils {
 			return null;
 		});
 		registerMethodHandler("javax/crypto/CipherOutputStream", "write", "([B)V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)));
+			receiver.write(arrb(args.get(0)));
 			return null;
 		});
 		registerMethodHandler("javax/crypto/CipherOutputStream", "write", "([BII)V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
-			receiver.write(arrb((ArrayValue) args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
+			receiver.write(arrb(args.get(0)), i((IntValue) args.get(1)), i((IntValue) args.get(2)));
 			return null;
 		});
 		registerMethodHandler("javax/crypto/CipherOutputStream", "flush", "()V", (ReFrame frame, ReValue host, OutputStream receiver, List<ReValue> args) -> {
@@ -1428,19 +1433,19 @@ public class InstanceFactory extends BasicLookupUtils {
 	@SuppressWarnings("all")
 	private void registerCtorMappers() {
 		// java.lang.String
-		registerMapper(String.class, "([BLjava/lang/String;)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), str((StringValue) parameters.get(1))));
-		registerMapper(String.class, "([BLjava/nio/charset/Charset;)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), requireRealInstance(parameters.get(1), Charset.class)));
-		registerMapper(String.class, "([BII)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
-		registerMapper(String.class, "([B)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0))));
-		registerMapper(String.class, "([BB)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), b((IntValue) parameters.get(1))));
-		registerMapper(String.class, "([CII)V", (host, parameters) -> new String(arrc((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
-		registerMapper(String.class, "([C)V", (host, parameters) -> new String(arrc((ArrayValue) parameters.get(0))));
+		registerMapper(String.class, "([BLjava/lang/String;)V", (host, parameters) -> new String(arrb(parameters.get(0)), str((StringValue) parameters.get(1))));
+		registerMapper(String.class, "([BLjava/nio/charset/Charset;)V", (host, parameters) -> new String(arrb(parameters.get(0)), requireRealInstance(parameters.get(1), Charset.class)));
+		registerMapper(String.class, "([BII)V", (host, parameters) -> new String(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerMapper(String.class, "([B)V", (host, parameters) -> new String(arrb(parameters.get(0))));
+		registerMapper(String.class, "([BB)V", (host, parameters) -> new String(arrb(parameters.get(0)), b((IntValue) parameters.get(1))));
+		registerMapper(String.class, "([CII)V", (host, parameters) -> new String(arrc(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerMapper(String.class, "([C)V", (host, parameters) -> new String(arrc(parameters.get(0))));
 		registerMapper(String.class, "(Ljava/lang/String;)V", (host, parameters) -> new String(str((StringValue) parameters.get(0))));
 		registerMapper(String.class, "()V", (host, parameters) -> new String());
-		registerMapper(String.class, "([BIILjava/lang/String;)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2)), str((StringValue) parameters.get(3))));
-		registerMapper(String.class, "([BI)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1))));
-		registerMapper(String.class, "([BIII)V", (host, parameters) -> new String(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
-		registerMapper(String.class, "([III)V", (host, parameters) -> new String(arri((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerMapper(String.class, "([BIILjava/lang/String;)V", (host, parameters) -> new String(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2)), str((StringValue) parameters.get(3))));
+		registerMapper(String.class, "([BI)V", (host, parameters) -> new String(arrb(parameters.get(0)), i((IntValue) parameters.get(1))));
+		registerMapper(String.class, "([BIII)V", (host, parameters) -> new String(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
+		registerMapper(String.class, "([III)V", (host, parameters) -> new String(arri(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
 
 		// java.lang.StringBuilder
 		registerMapper(StringBuilder.class, "(Ljava/lang/CharSequence;)V", (host, parameters) -> new StringBuilder(str((StringValue) parameters.get(0))));
@@ -1495,8 +1500,8 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMapper(StackTraceElement.class, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V", (host, parameters) -> new StackTraceElement(str((StringValue) parameters.get(0)), str((StringValue) parameters.get(1)), str((StringValue) parameters.get(2)), i((IntValue) parameters.get(3))));
 
 		// java.io.ByteArrayInputStream
-		registerMapper(ByteArrayInputStream.class, "([B)V", (host, parameters) -> new ByteArrayInputStream(arrb((ArrayValue) parameters.get(0))));
-		registerMapper(ByteArrayInputStream.class, "([BII)V", (host, parameters) -> new ByteArrayInputStream(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerMapper(ByteArrayInputStream.class, "([B)V", (host, parameters) -> new ByteArrayInputStream(arrb(parameters.get(0))));
+		registerMapper(ByteArrayInputStream.class, "([BII)V", (host, parameters) -> new ByteArrayInputStream(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
 
 		// java.io.ByteArrayOutputStream
 		registerMapper(ByteArrayOutputStream.class, "()V", (host, parameters) -> new ByteArrayOutputStream());
@@ -1507,15 +1512,15 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMapper(ArrayList.class, "(I)V", (host, parameters) -> new ArrayList(i((IntValue) parameters.get(0))));
 
 		// javax.crypto.spec
-		registerMapper(SecretKeySpec.class, "([BLjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb((ArrayValue) parameters.get(0)), str((StringValue) parameters.get(1))));
-		registerMapper(GCMParameterSpec.class, "(I[B)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1))));
-		registerMapper(GCMParameterSpec.class, "(I[BII)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
-		registerMapper(IvParameterSpec.class, "([B)V", (host, parameters) -> new IvParameterSpec(arrb((ArrayValue) parameters.get(0))));
+		registerMapper(SecretKeySpec.class, "([BLjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb(parameters.get(0)), str((StringValue) parameters.get(1))));
+		registerMapper(GCMParameterSpec.class, "(I[B)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb(parameters.get(1))));
+		registerMapper(GCMParameterSpec.class, "(I[BII)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb(parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
+		registerMapper(IvParameterSpec.class, "([B)V", (host, parameters) -> new IvParameterSpec(arrb(parameters.get(0))));
 
 		// javax.crypto.spec.PBEKeySpec
-		registerMapper(PBEKeySpec.class, "([C)V", (host, parameters) -> new PBEKeySpec(arrc((ArrayValue) parameters.get(0))));
-		registerMapper(PBEKeySpec.class, "([C[BII)V", (host, parameters) -> new PBEKeySpec(arrc((ArrayValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
-		registerMapper(PBEKeySpec.class, "([C[BI)V", (host, parameters) -> new PBEKeySpec(arrc((ArrayValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerMapper(PBEKeySpec.class, "([C)V", (host, parameters) -> new PBEKeySpec(arrc(parameters.get(0))));
+		registerMapper(PBEKeySpec.class, "([C[BII)V", (host, parameters) -> new PBEKeySpec(arrc(parameters.get(0)), arrb(parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
+		registerMapper(PBEKeySpec.class, "([C[BI)V", (host, parameters) -> new PBEKeySpec(arrc(parameters.get(0)), arrb(parameters.get(1)), i((IntValue) parameters.get(2))));
 
 		// javax.crypto streams
 		registerMapper(CipherInputStream.class, "(Ljava/io/InputStream;Ljavax/crypto/Cipher;)V", (host, parameters) -> new CipherInputStream(requireRealInstance(parameters.get(0), InputStream.class), requireRealInstance(parameters.get(1), Cipher.class)));
@@ -1581,16 +1586,19 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerStaticMapper(Base64.class, "getEncoder()Ljava/util/Base64$Encoder;", (host, parameters) -> Base64.getEncoder());
 		registerStaticMapper(Base64.class, "getUrlEncoder()Ljava/util/Base64$Encoder;", (host, parameters) -> Base64.getUrlEncoder());
 		registerStaticMapper(Base64.class, "getMimeEncoder()Ljava/util/Base64$Encoder;", (host, parameters) -> Base64.getMimeEncoder());
-		registerStaticMapper(Base64.class, "getMimeEncoder(I[B)Ljava/util/Base64$Encoder;", (host, parameters) -> Base64.getMimeEncoder(i((IntValue) parameters.get(0)), arrb((ArrayValue) parameters.get(1))));
+		registerStaticMapper(Base64.class, "getMimeEncoder(I[B)Ljava/util/Base64$Encoder;", (host, parameters) -> Base64.getMimeEncoder(i((IntValue) parameters.get(0)), arrb(parameters.get(1))));
 		registerStaticMapper(Base64.class, "getDecoder()Ljava/util/Base64$Decoder;", (host, parameters) -> Base64.getDecoder());
 		registerStaticMapper(Base64.class, "getUrlDecoder()Ljava/util/Base64$Decoder;", (host, parameters) -> Base64.getUrlDecoder());
 		registerStaticMapper(Base64.class, "getMimeDecoder()Ljava/util/Base64$Decoder;", (host, parameters) -> Base64.getMimeDecoder());
 
 		// java.nio.ByteBuffer
-		registerStaticMapper(ByteBuffer.class, "wrap([B)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.wrap(arrb((ArrayValue) parameters.get(0))));
-		registerStaticMapper(ByteBuffer.class, "wrap([BII)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.wrap(arrb((ArrayValue) parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
+		registerStaticMapper(ByteBuffer.class, "wrap([B)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.wrap(arrb(parameters.get(0))));
+		registerStaticMapper(ByteBuffer.class, "wrap([BII)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.wrap(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2))));
 		registerStaticMapper(ByteBuffer.class, "allocate(I)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.allocate(i((IntValue) parameters.get(0))));
 		registerStaticMapper(ByteBuffer.class, "allocateDirect(I)Ljava/nio/ByteBuffer;", (host, parameters) -> ByteBuffer.allocateDirect(i((IntValue) parameters.get(0))));
+
+		// java.security.MessageDigest
+		registerStaticMapper(MessageDigest.class, "getInstance(Ljava/lang/String;)Ljava/security/MessageDigest;", (host, parameters) -> MessageDigest.getInstance(str((StringValue) parameters.get(0))));
 
 		// javax.crypto.Cipher
 		registerStaticMapper(Cipher.class, "getInstance(Ljava/lang/String;)Ljavax/crypto/Cipher;", (host, parameters) -> Cipher.getInstance(str((StringValue) parameters.get(0))));
@@ -1628,6 +1636,20 @@ public class InstanceFactory extends BasicLookupUtils {
 						|| destinationValue instanceof ObjectValue destinationObject
 						&& destinationObject.isNull())
 					throw new NullPointerException();
+
+				// Host-backed arrays already carry JVM-compatible storage, so let the JDK preserve aliasing and overlap rules.
+				Object sourceHost = hostArray(sourceValue);
+				Object destinationHost = hostArray(destinationValue);
+				if (sourceHost != null || destinationHost != null) {
+					if (sourceHost == null || destinationHost == null)
+						throw new AnalyzerException(instruction, "System.arraycopy cannot mix host and symbolic arrays");
+					int sourcePosition = requireIndex(args.get(1), instruction, "source position");
+					int destinationPosition = requireIndex(args.get(3), instruction, "destination position");
+					int length = requireIndex(args.get(4), instruction, "length");
+					System.arraycopy(sourceHost, sourcePosition, destinationHost, destinationPosition, length);
+					return null;
+				}
+
 				ArrayValue source = requireArray(sourceValue, instruction, "source");
 				ArrayValue destination = requireArray(destinationValue, instruction, "destination");
 
@@ -1681,6 +1703,15 @@ public class InstanceFactory extends BasicLookupUtils {
 				ArrayValue replacement = new ArrayValueImpl(destination.type(), destination.nullness(), destinationLength, destinationValues::get);
 				frame.replaceValue(destination, replacement);
 				return null;
+			}
+
+			@Nullable
+			private static Object hostArray(@Nonnull ReValue value) {
+				if (!(value instanceof InstancedObjectValue<?> instanced)
+						|| instanced.type().getSort() != Type.ARRAY)
+					return null;
+				Object realInstance = instanced.getRealInstance();
+				return realInstance != null && realInstance.getClass().isArray() ? realInstance : null;
 			}
 
 			@Nonnull
@@ -2025,6 +2056,9 @@ public class InstanceFactory extends BasicLookupUtils {
 	 */
 	@Nullable
 	private static Object[] toHostObjectArray(@Nonnull ReValue value) {
+		// Host arrays are already in the representation required by collection APIs.
+		if (value instanceof InstancedObjectValue<?> instanced && instanced.getRealInstance() instanceof Object[] objects)
+			return objects;
 		if (!(value instanceof ArrayValue array))
 			throw new IllegalArgumentException("Expected evaluator object array: " + value);
 		if (array.isNull())
@@ -2098,12 +2132,16 @@ public class InstanceFactory extends BasicLookupUtils {
 	 * @param length
 	 * 		Maximum number of bytes to copy.
 	 */
-	private static void replaceByteArrayContents(@Nonnull ReFrame frame, @Nonnull ArrayValue original,
+	private static void replaceByteArrayContents(@Nonnull ReFrame frame, @Nonnull ReValue original,
 	                                             @Nonnull byte[] hostContents, int offset, int length) {
+		// Host-backed arrays already contain the bytes written by the host call.
+		if (!(original instanceof ArrayValue array))
+			return;
+
 		// Skip if there is nothing to copy, or if the original array is malformed.
 		if (length <= 0)
 			return;
-		int originalLength = original.getFirstDimensionLength().orElse(-1);
+		int originalLength = array.getFirstDimensionLength().orElse(-1);
 		if (originalLength < 0)
 			return;
 
@@ -2113,8 +2151,8 @@ public class InstanceFactory extends BasicLookupUtils {
 		if (start >= end)
 			return;
 
-		ArrayValue replacement = new ArrayValueImpl(original.type(), original.nullness(), originalLength,
-				index -> index >= start && index < end ? i(hostContents[index]) : original.getValue(index));
+		ArrayValue replacement = new ArrayValueImpl(array.type(), array.nullness(), originalLength,
+				index -> index >= start && index < end ? i(hostContents[index]) : array.getValue(index));
 		frame.replaceValue(original, replacement);
 	}
 }

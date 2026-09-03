@@ -117,6 +117,7 @@ public final class ArrayValueMutableImpl implements ArrayValue {
 		return nullness;
 	}
 
+	@Nonnull
 	@Override
 	public OptionalInt getFirstDimensionLength() {
 		return length;

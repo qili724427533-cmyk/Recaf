@@ -27,6 +27,7 @@ import software.coley.recaf.util.analysis.eval.Evaluator;
 import software.coley.recaf.util.analysis.eval.FieldCacheManager;
 import software.coley.recaf.util.analysis.eval.InstancedObjectValue;
 import software.coley.recaf.util.analysis.lookup.InvokeVirtualLookup;
+import software.coley.recaf.util.analysis.value.ArrayValue;
 import software.coley.recaf.util.analysis.value.IntValue;
 import software.coley.recaf.util.analysis.value.LongValue;
 import software.coley.recaf.util.analysis.value.ObjectValue;
@@ -121,6 +122,96 @@ public class EvaluatorTest extends TransformerTestBase {
 		ReValue retVal = evaluate(src, "decrypt", "(I)Ljava/lang/String;", null,
 				List.of(IntValue.of(26)));
 		assertStringValue("abcdefghijklmnopqrstuvwxyz", retVal);
+	}
+
+	@Test
+	void testHostBackedArrayOperations() {
+		String compiled = compile("""
+				static int parameterLength(int[] values) { return values.length; }
+				static int hostLength(int[] values) { return values.length; }
+				static int hostIntLoad(int[] values) { return values[1]; }
+				static int hostBooleanLoad(boolean[] values) { return values[0] ? 1 : 0; }
+				static int hostIntStore(int[] values) {
+				    values[1] = 7;
+				    return values[1];
+				}
+				static String hostObjectLoad(String[] values) { return values[1]; }
+				static String hostObjectStore(String[] values) {
+				    values[0] = "changed";
+				    return values[0];
+				}
+				static int hostArrayInstanceOf(String[] values) {
+				    Object value = values;
+				    return value instanceof Object[] ? 1 : 0;
+				}
+				static int hostPrimitiveArrayInstanceOf(int[] values) {
+				    Object value = values;
+				    return value instanceof Object[] ? 1 : 0;
+				}
+				static int hostGoodArrayCast(String[] values) {
+				    Object value = values;
+				    Object[] cast = (Object[]) value;
+				    return cast.length;
+				}
+				static int hostBadArrayCast(int[] values) {
+				    try {
+				        Object value = values;
+				        Object[] cast = (Object[]) value;
+				        return cast.length;
+				    } catch (ClassCastException ex) {
+				        return 10;
+				    }
+				}
+				static int hostCaughtLoad(int[] values) {
+				    try { return values[values.length]; }
+				    catch (ArrayIndexOutOfBoundsException ex) { return 7; }
+				}
+				static int hostCaughtStore(int[] values) {
+				    try { values[values.length] = 7; }
+				    catch (ArrayIndexOutOfBoundsException ex) { return 8; }
+				    return 0;
+				}
+				static int hostCaughtReferenceStore(String[] values) {
+				    try {
+				        Object[] widened = values;
+				        widened[0] = Integer.valueOf(1);
+				    } catch (ArrayStoreException ex) {
+				        return 9;
+				    }
+				    return 0;
+				}
+				static String hostBuilder(char[] values) {
+				    return new StringBuilder().append(values).toString();
+				}
+				static int hostArraycopy(int[] source, int[] destination) {
+				    System.arraycopy(source, 0, destination, 0, 2);
+				    return destination[1];
+				}
+				""");
+
+		// There are a number of cases in our evaluator where we can get an instanced array value, rather than use the ArrayValue type.
+		// This is a shotgun test covering a number of those cases to ensure the evaluator can properly handle the arrays even if
+		// represented as an instanced object value.
+		ReValue unmappedBooleanArray = new InstancedObjectValue<>(new boolean[]{true}).unmap();
+		ReValue unknownLength = evaluate(compiled, "parameterLength", "([I)I", null, List.of(new InstancedObjectValue<>(Type.getType("[I"))));
+		assertTrue(assertInstanceOf(IntValue.class, unknownLength).value().isEmpty());
+		assertTrue(unmappedBooleanArray.hasKnownValue());
+		assertIntValue(2, evaluate(compiled, "hostLength", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(20, evaluate(compiled, "hostIntLoad", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(1, evaluate(compiled, "hostBooleanLoad", "([Z)I", null, List.of(new InstancedObjectValue<>(new boolean[]{true}))));
+		assertIntValue(1, ((ArrayValue) unmappedBooleanArray).getValue(0));
+		assertIntValue(7, evaluate(compiled, "hostIntStore", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertStringValue("right", evaluate(compiled, "hostObjectLoad", "([Ljava/lang/String;)Ljava/lang/String;", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
+		assertStringValue("changed", evaluate(compiled, "hostObjectStore", "([Ljava/lang/String;)Ljava/lang/String;", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
+		assertIntValue(1, evaluate(compiled, "hostArrayInstanceOf", "([Ljava/lang/String;)I", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
+		assertIntValue(0, evaluate(compiled, "hostPrimitiveArrayInstanceOf", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(2, evaluate(compiled, "hostGoodArrayCast", "([Ljava/lang/String;)I", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
+		assertIntValue(10, evaluate(compiled, "hostBadArrayCast", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(7, evaluate(compiled, "hostCaughtLoad", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(8, evaluate(compiled, "hostCaughtStore", "([I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}))));
+		assertIntValue(9, evaluate(compiled, "hostCaughtReferenceStore", "([Ljava/lang/String;)I", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
+		assertStringValue("ab", evaluate(compiled, "hostBuilder", "([C)Ljava/lang/String;", null, List.of(new InstancedObjectValue<>(new char[]{'a', 'b'}))));
+		assertIntValue(20, evaluate(compiled, "hostArraycopy", "([I[I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}), new InstancedObjectValue<>(new int[]{0, 0}))));
 	}
 
 	@Test

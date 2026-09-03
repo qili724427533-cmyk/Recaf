@@ -177,7 +177,7 @@ public interface ArrayValue extends ObjectValue {
 	 * @param index
 	 * 		Index within {@link #getFirstDimensionLength()}.
 	 *
-	 * @return Value, if known, at the given index. Otherwise, a {@link ReValue} of the array's element type..
+	 * @return Value, if known, at the given index. Otherwise, a {@link ReValue} of the array's element type.
 	 */
 	@Nullable
 	ReValue getValue(int index);
