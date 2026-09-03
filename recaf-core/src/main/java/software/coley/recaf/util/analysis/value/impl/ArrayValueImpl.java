@@ -160,7 +160,7 @@ public class ArrayValueImpl implements ArrayValue {
 					&& nullness() == otherArray.nullness()
 					&& dimensions() == otherArray.dimensions()) {
 				int length = getFirstDimensionLength().getAsInt();
-				ArrayValueImpl merged = new ArrayValueImpl(type, nullness, length, i -> {
+				return new ArrayValueImpl(type, nullness, length, i -> {
 					try {
 						ReValue value = Objects.requireNonNull(otherArray.getValue(i));
 						return contents.get(i).mergeWith(value);
