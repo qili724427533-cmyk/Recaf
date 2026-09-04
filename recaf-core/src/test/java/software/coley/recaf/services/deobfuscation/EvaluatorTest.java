@@ -903,6 +903,23 @@ public class EvaluatorTest extends TransformerTestBase {
 	}
 
 	@Test
+	void testThrowablePrintStackTrace() {
+		// Previously the evaluator would fail to evaluate a method that caught an exception and called printStackTrace() on it.
+		// Our exception handling model should support any typed impl of printStackTrace without failing to evaluate the method.
+		String compiled = compile("""
+				static String run() {
+				    try {
+				        throw new IllegalStateException();
+				    } catch (IllegalStateException ex) {
+				        ex.printStackTrace();
+				        return "caught";
+				    }
+				}
+				""");
+		assertStringValue("caught", evaluate(compiled, "run", "()Ljava/lang/String;", null, List.of()));
+	}
+
+	@Test
 	void testAesGcmParameterSpecs() {
 		String compiled = compile("""
 				static String direct() throws Exception {

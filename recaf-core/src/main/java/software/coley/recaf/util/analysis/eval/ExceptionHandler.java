@@ -96,6 +96,20 @@ public class ExceptionHandler {
 	}
 
 	/**
+	 * Checks whether an invocation only logs a throwable and has no value-producing side effect.
+	 *
+	 * @param instruction
+	 * 		Invocation instruction to inspect.
+	 *
+	 * @return {@code true} if the instruction invokes {@code printStackTrace()} on a throwable.
+	 */
+	public boolean isThrowablePrintStackTrace(@Nonnull MethodInsnNode instruction) {
+		return instruction.name.equals("printStackTrace")
+				&& instruction.desc.equals("()V")
+				&& isThrowableType(instruction.owner);
+	}
+
+	/**
 	 * Predicts an implicit exception when the current frame state makes one certain.
 	 *
 	 * @param instruction

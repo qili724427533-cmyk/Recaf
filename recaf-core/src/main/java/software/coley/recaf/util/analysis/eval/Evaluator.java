@@ -1198,9 +1198,11 @@ public class Evaluator {
 								&& min.name.equals("<init>") && min.desc.equals("()V"))
 							yield true;
 
-						// Check if the method is a known exception constructor or stack trace getter.
+						// Check if the method is a known exception constructor, stack trace getter, or logger.
 						// These are special cases in our evaluation engine and are safe to evaluate.
-						if (exceptionHandler.isThrowableConstructor(min) || exceptionHandler.isThrowableGetStackTrace(min))
+						if (exceptionHandler.isThrowableConstructor(min)
+								|| exceptionHandler.isThrowableGetStackTrace(min)
+								|| exceptionHandler.isThrowablePrintStackTrace(min))
 							yield true;
 
 						// Check if the method is a known constructor supported by one of the model types.
