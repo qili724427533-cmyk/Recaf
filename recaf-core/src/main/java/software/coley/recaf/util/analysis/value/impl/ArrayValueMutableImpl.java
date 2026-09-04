@@ -60,7 +60,12 @@ public final class ArrayValueMutableImpl implements ArrayValue {
 
 	@Override
 	public ArrayValue setValue(int index, @Nonnull ReValue value) {
-		if (hasKnownValue())
+		// A known non-null array can retain per-slot knowledge even when another slot is unknown.
+		if (nullness == Nullness.NOT_NULL
+				&& length.isPresent()
+				&& contents != null
+				&& index >= 0
+				&& index < contents.size())
 			contents.set(index, value instanceof ArrayValue array ? wrap(array) : value);
 		return this;
 	}

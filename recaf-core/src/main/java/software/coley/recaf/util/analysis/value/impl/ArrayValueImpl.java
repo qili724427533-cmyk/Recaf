@@ -97,9 +97,13 @@ public class ArrayValueImpl implements ArrayValue {
 
 	@Nonnull
 	@Override
-	@SuppressWarnings("OptionalGetWithoutIsPresent")
 	public ArrayValue setValue(int index, @Nonnull ReValue value) {
-		if (hasKnownValue()) {
+		// A known non-null array can retain per-slot knowledge even when another slot is unknown.
+		if (nullness == Nullness.NOT_NULL
+				&& length.isPresent()
+				&& contents != null
+				&& index >= 0
+				&& index < contents.size()) {
 			ArrayValueImpl copy = new ArrayValueImpl(type, nullness, length.getAsInt());
 			for (int i = 0; i < contents.size(); i++) {
 				ReValue valueAtIndex = i == index ? value : contents.get(i);
@@ -108,7 +112,7 @@ public class ArrayValueImpl implements ArrayValue {
 			return copy;
 		}
 
-		// Values not known, so no need to create a copy.
+		// Unknown-length arrays cannot safely retain an indexed write.
 		return this;
 	}
 
