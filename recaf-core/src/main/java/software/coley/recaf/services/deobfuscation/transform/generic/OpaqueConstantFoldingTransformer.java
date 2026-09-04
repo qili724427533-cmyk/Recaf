@@ -5,6 +5,7 @@ import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
 import me.darknet.assembler.printer.JvmPrinterUtil;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.IincInsnNode;
@@ -33,6 +34,7 @@ import software.coley.recaf.util.analysis.value.DoubleValue;
 import software.coley.recaf.util.analysis.value.FloatValue;
 import software.coley.recaf.util.analysis.value.IntValue;
 import software.coley.recaf.util.analysis.value.LongValue;
+import software.coley.recaf.util.analysis.value.ObjectValue;
 import software.coley.recaf.util.analysis.value.ReValue;
 import software.coley.recaf.util.analysis.value.StringValue;
 import software.coley.recaf.workspace.model.Workspace;
@@ -810,7 +812,14 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 	 */
 	@Nullable
 	@SuppressWarnings("OptionalGetWithoutIsPresent")
-	public static AbstractInsnNode toInsn(@Nonnull ReValue value) {
+	public static AbstractInsnNode toInsn(@Nullable ReValue value) {
+		if (value == null)
+			return null;
+
+		// Check for null. Not covered by 'known value' so we need to handle it explicitly.
+		if (value instanceof ObjectValue objectValue && objectValue.isNull())
+			return new InsnNode(Opcodes.ACONST_NULL);
+
 		// Skip if value is not known.
 		if (!value.hasKnownValue())
 			return null;

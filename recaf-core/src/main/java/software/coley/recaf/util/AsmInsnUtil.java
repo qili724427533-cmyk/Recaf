@@ -215,6 +215,34 @@ public class AsmInsnUtil implements Opcodes {
 	}
 
 	/**
+	 * @param opcode
+	 * 		Instruction opcode.
+	 *
+	 * @return {@code true} when the opcode loads one array element.
+	 */
+	public static boolean isArrayLoad(int opcode) {
+		return switch (opcode) {
+			case IALOAD, LALOAD, FALOAD, DALOAD,
+			     AALOAD, BALOAD, CALOAD, SALOAD -> true;
+			default -> false;
+		};
+	}
+
+	/**
+	 * @param opcode
+	 * 		Instruction opcode.
+	 *
+	 * @return {@code true} when the opcode stores one array element.
+	 */
+	public static boolean isArrayStore(int opcode) {
+		return switch (opcode) {
+			case IASTORE, LASTORE, FASTORE, DASTORE,
+			     AASTORE, BASTORE, CASTORE, SASTORE -> true;
+			default -> false;
+		};
+	}
+
+	/**
 	 * @param access
 	 * 		Method access flags.
 	 *

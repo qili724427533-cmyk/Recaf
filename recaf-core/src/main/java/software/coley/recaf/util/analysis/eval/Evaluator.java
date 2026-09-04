@@ -1425,7 +1425,7 @@ public class Evaluator {
 				}
 				case GETSTATIC -> {
 					if (insn instanceof FieldInsnNode fieldInsn) {
-						// GETSTATIC is a JVM active-use boundary,so run static initialization before cache lookup.
+						// GETSTATIC is a JVM active-use boundary, so run static initialization before cache lookup.
 						EvaluationResult initializationResult = initializeClassIfNeeded(fieldInsn.owner, context);
 						if (initializationResult instanceof EvaluationFailureResult failure)
 							throw new NestedEvaluationFailure(failure);
