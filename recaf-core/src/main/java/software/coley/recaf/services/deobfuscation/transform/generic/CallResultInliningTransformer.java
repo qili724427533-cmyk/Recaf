@@ -13,6 +13,7 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 import software.coley.recaf.info.JvmClassInfo;
 import software.coley.recaf.services.inheritance.InheritanceGraph;
@@ -108,6 +109,14 @@ public class CallResultInliningTransformer implements JvmClassTransformer {
 				ReAnalyzer analyzer = context.newAnalyzer(inheritanceGraph, node, method);
 				installStaticValueCollector(analyzer.getInterpreter(), staticValueCollector);
 				frames = analyzer.analyze(node.name, method);
+
+				// TODO: Analysis in ReAnalyzer can in some cases not visit all initializer call sites,
+				//   which can lead to missing values in the frame states.
+				//   This is observed in ZKM samples.
+				//   - Using the standard ASM Analyzer with the same interpreter mitigates this case.
+				if (evaluateClassInitializers && method.name.equals("<clinit>")) {
+					frames = new Analyzer<>(analyzer.getInterpreter()).analyze(node.name, method);
+				}
 			} catch (Throwable ex) {
 				// Analysis failed, skip this method.
 				continue;
