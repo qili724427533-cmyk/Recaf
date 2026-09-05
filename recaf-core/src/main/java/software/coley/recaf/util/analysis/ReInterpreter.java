@@ -682,10 +682,14 @@ public class ReInterpreter extends Interpreter<ReValue> implements Opcodes {
 			return UninitializedValue.UNINITIALIZED_VALUE;
 
 		// Special case for the type of the "null" literal.
-		if (value1 instanceof ObjectValue ov1 && ov1.isNull())
-			return value2;
-		if (value2 instanceof ObjectValue ov2 && ov2.isNull())
-			return value1;
+		//
+		// A null reference can take the other reference's type, but two typed nulls still need
+		// their types merged. Returning either operand for that case makes the result depend on
+		// work-list order, so cyclic control flow can keep changing a frame forever.
+		boolean value1IsNull = value1 instanceof ObjectValue ov1 && ov1.isNull();
+		boolean value2IsNull = value2 instanceof ObjectValue ov2 && ov2.isNull();
+		if (value1IsNull != value2IsNull)
+			return value1IsNull ? value2 : value1;
 
 		// Convert type1 to its element type and array dimension. Arrays of primitive values are seen as
 		// Object arrays with one dimension less. Hence, the element type is always of Type.OBJECT sort.
