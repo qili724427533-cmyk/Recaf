@@ -385,7 +385,7 @@ public class ReInterpreter extends Interpreter<ReValue> implements Opcodes {
 				if (value instanceof ObjectValue object) {
 					if (object.isNull())
 						return IntValue.VAL_0;
-					if (value instanceof InstancedObjectValue<?> || value instanceof ArrayValue) {
+					if (object.hasKnownValue() || (object.isNotNull() && (value instanceof ArrayValue || value instanceof InstancedObjectValue<?>))) {
 						String descriptor = ((TypeInsnNode) insn).desc;
 						Type target = descriptor.startsWith("[") ? Type.getType(descriptor) : Type.getObjectType(descriptor);
 						return IntValue.of(isAssignableFrom(target, value.type()) ? 1 : 0);

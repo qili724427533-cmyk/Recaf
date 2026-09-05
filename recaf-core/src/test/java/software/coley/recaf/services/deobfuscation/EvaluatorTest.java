@@ -2016,6 +2016,18 @@ public class EvaluatorTest extends TransformerTestBase {
 	}
 
 	@Test
+	void testKnownStringInstanceOfFoldsExactly() {
+		String compiled = compile("""
+				static int run() {
+				    Object value = "known";
+				    return (value instanceof String ? 1 : 0)
+				            + (value instanceof Integer ? 10 : 0);
+				}
+				""");
+		assertIntValue(1, evaluate(compiled, "run", "()I", null, List.of()));
+	}
+
+	@Test
 	void testUnknownBranchBails() {
 		String compiled = compile("""
 				static int unary(int input) {
