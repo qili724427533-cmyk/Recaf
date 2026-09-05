@@ -1,4 +1,4 @@
-package software.coley.recaf.services.deobfuscation.transform.specific;
+package software.coley.recaf.services.deobfuscation.transform.specific.dasho;
 
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.context.Dependent;
