@@ -63,8 +63,6 @@ import software.coley.recaf.services.cell.CellConfigurationService;
 import software.coley.recaf.services.config.ConfigComponentFactory;
 import software.coley.recaf.services.config.ConfigComponentManager;
 import software.coley.recaf.services.decompile.DecompilerManager;
-import software.coley.recaf.services.deobfuscation.transform.generic.ExceptionCollectionTransformer;
-import software.coley.recaf.services.deobfuscation.transform.generic.StaticValueCollectionTransformer;
 import software.coley.recaf.services.info.association.FileTypeSyntaxAssociationService;
 import software.coley.recaf.services.navigation.Actions;
 import software.coley.recaf.services.transform.ClassTransformer;
@@ -134,10 +132,6 @@ public class DeobfuscationWindow extends RecafStage {
 	private static final DebuggingLogger logger = Logging.get(DeobfuscationWindow.class);
 
 	private static final int MAX_PASSES = 50;
-	private static final List<Class<? extends ClassTransformer>> SKIPPED_TRANSFORMERS = Arrays.asList(
-			StaticValueCollectionTransformer.class,
-			ExceptionCollectionTransformer.class
-	);
 
 	private final TransformationManager transformationManager;
 	private final TransformationApplierService transformationApplierService;
@@ -230,9 +224,6 @@ public class DeobfuscationWindow extends RecafStage {
 	@Nullable
 	private TransformerDescriptor instantiateDescriptor(@Nonnull Class<? extends JvmClassTransformer> type) {
 		try {
-			if (SKIPPED_TRANSFORMERS.contains(type))
-				return null;
-
 			JvmClassTransformer instance = transformationManager.newJvmTransformer(type);
 			String identifier = instance.identifier();
 			return new TransformerDescriptor(type, instance, identifier, Lang.get("deobf." + identifier), instance.getParameterDefinitions());

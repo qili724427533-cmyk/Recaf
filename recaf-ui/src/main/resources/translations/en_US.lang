@@ -644,6 +644,7 @@ deobf.peephole.data.callinline.evaluate-class-initializers=Evaluate static initi
 deobf.peephole.data.callinline.max-steps=Maximum evaluation steps
 deobf.peephole.data.exceptioncollect=Exception metadata collection
 deobf.peephole.data.staticcollect=Static value collection
+deobf.peephole.data.staticcollect.max-steps=Maximum evaluation steps
 deobf.peephole.data.staticinline=Static value inlining
 deobf.peephole.data.constfold=Opaque constant folding
 deobf.peephole.data.varfold=Variable folding
