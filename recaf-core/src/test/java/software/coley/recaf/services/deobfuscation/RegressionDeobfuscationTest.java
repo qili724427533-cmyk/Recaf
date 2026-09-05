@@ -11,6 +11,8 @@ import software.coley.recaf.services.deobfuscation.transform.generic.OpaqueConst
 import software.coley.recaf.services.deobfuscation.transform.generic.OpaquePredicateFoldingTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.RedundantTryCatchRemovingTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.VariableFoldingTransformer;
+import software.coley.recaf.services.transform.JvmTransformResult;
+import software.coley.recaf.services.transform.TransformationParameters;
 import software.coley.recaf.util.AsmInsnUtil;
 import software.coley.recaf.util.RegexUtil;
 import software.coley.recaf.util.StringUtil;
@@ -18,6 +20,7 @@ import software.coley.recaf.util.analysis.ReInterpreter;
 import software.coley.recaf.util.analysis.value.ReValue;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -1491,6 +1494,59 @@ public class RegressionDeobfuscationTest extends TransformerTestBase {
 			assertFalse(dis.contains("switch"));
 			assertFalse(dis.contains("iinc"));
 		});
+	}
+
+	@Test
+	void analyzerRequeuesReachableBranchTargets() {
+		// When we use ReAnalyzer/ReFrame we need to ensure that the first branching behavior to some destination frame
+		// does not prevent a later reachable branch from re-analyzing that destination frame. In the past when this
+		// bug was present, the first branch would mark 'TARGET' as unreachable, and any transformer would ignore
+		// the contents of the TARGET block.
+		String asm = """
+				.super java/lang/Object
+				.class Example {
+					.method static <clinit> ()V {
+					    code: {
+					    ENTRY:
+					        // This first branch is opaque, and indicate TARGET is unreachable from ENTRY.
+					        iconst_1
+					        iconst_0
+					        if_icmpgt PATH_A // GOTO PATH_A
+					    TARGET:
+					        invokestatic Example.value ()Ljava/lang/String;
+					        pop
+					        return
+					    PATH_A:
+					        // This second branch is also opaque, but indicates TARGET is reachable from PATH_A.
+					        iconst_1
+					        iconst_0
+					        if_icmpgt TARGET // GOTO TARGET
+					        return
+					    }
+					}
+					.method static value ()Ljava/lang/String; {
+					    code: {
+					    A:
+					        ldc "reachable"
+					        areturn
+					    B:
+					    }
+					}
+				}
+				""";
+		assemble(asm, true);
+
+		TransformationParameters parameters = new TransformationParameters(Map.of(
+				CallResultInliningTransformer.KEY_EVALUATE_CLASS_INITIALIZERS, true));
+		JvmTransformResult result = assertDoesNotThrow(() ->
+				newApplier().transformJvm(List.of(CallResultInliningTransformer.class), parameters));
+		assertTrue(result.getTransformerFailures().isEmpty(), "There were transformation failures");
+
+		String disassembly = disassembleTransformed(result, true);
+		assertEquals(0, StringUtil.count("invokestatic Example.value", disassembly),
+				"A later reachable edge must requeue the previously pruned target");
+		assertEquals(2, StringUtil.count("ldc \"reachable\"", disassembly),
+				"The reachable initializer call must be replaced with its exact value");
 	}
 
 	/**
