@@ -4,6 +4,7 @@ import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -19,6 +20,7 @@ import software.coley.recaf.services.deobfuscation.transform.generic.FrameRemovi
 import software.coley.recaf.services.inheritance.InheritanceGraph;
 import software.coley.recaf.services.mapping.aggregate.AggregatedMappings;
 import software.coley.recaf.util.ClassMethodPair;
+import software.coley.recaf.util.Types;
 import software.coley.recaf.util.analysis.ReAnalyzer;
 import software.coley.recaf.util.analysis.ReInterpreter;
 import software.coley.recaf.util.analysis.lookup.BasicGetStaticLookup;
@@ -210,6 +212,39 @@ public class JvmTransformerContext extends AbstractTransformerContext<JvmClassTr
 			}
 		}
 		return map;
+	}
+
+	/**
+	 * @param inheritanceGraph
+	 * 		Inheritance graph of workspace.
+	 * @param targetType
+	 * 		Target type.
+	 * @param valueType
+	 * 		Value type.
+	 *
+	 * @return {@code true} when the value type is assignable to the target type.
+	 */
+	public boolean isAssignable(@Nonnull InheritanceGraph inheritanceGraph, @Nonnull Type targetType, @Nonnull Type valueType) {
+		// Base case, same type.
+		if (targetType.equals(valueType))
+			return true;
+
+		// Arrays can only be assigned to Object, and Object can be assigned from any array.
+		int targetSort = targetType.getSort();
+		int valueSort = valueType.getSort();
+		if (targetSort == Type.ARRAY || valueSort == Type.ARRAY)
+			return targetSort == Type.OBJECT && Types.OBJECT_TYPE.equals(targetType);
+
+		// For non-object types, these are not assignable between one another.
+		// This method is used strictly for checking casts and object type operations.
+		//
+		// If either type is not an object, then the cast is only valid if both types are the same primitive type,
+		// which is already handled by the equality check above.
+		if (targetSort != Type.OBJECT || valueSort != Type.OBJECT)
+			return false;
+
+		// Check inheritance graph for assignability of reference types.
+		return inheritanceGraph.isAssignableFrom(targetType.getInternalName(), valueType.getInternalName());
 	}
 
 	/**

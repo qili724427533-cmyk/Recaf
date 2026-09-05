@@ -80,6 +80,7 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 	private final InheritanceGraphService graphService;
 	private InheritanceGraph inheritanceGraph;
 	private ExceptionCollectionTransformer exceptionCollector;
+	private JvmTransformerContext context;
 	private boolean deleteJunkWorkspaceExceptions;
 
 	@Inject
@@ -89,6 +90,8 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 
 	@Override
 	public void setup(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace) throws TransformationException {
+		this.context = context;
+
 		inheritanceGraph = graphService.getOrCreateInheritanceGraph(workspace);
 		exceptionCollector = context.getTransformer(ExceptionCollectionTransformer.class);
 		deleteJunkWorkspaceExceptions = context.getParameters().getBoolean(KEY_DELETE_JUNK_WORKSPACE_EXCEPTIONS, DEFAULT_DELETE_JUNK_WORKSPACE_EXCEPTIONS);
@@ -940,7 +943,7 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 
 		// Finally check if the target type is assignable from the source type.
 		Type targetType = Type.getObjectType(cast.desc);
-		return !isAssignable(targetType, sourceType);
+		return !context.isAssignable(inheritanceGraph, targetType, sourceType);
 	}
 
 	/**
@@ -968,38 +971,7 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 		if (valueType == null)
 			return true;
 
-		return !isAssignable(componentType, valueType);
-	}
-
-	/**
-	 * @param targetType
-	 * 		Target type.
-	 * @param valueType
-	 * 		Value type.
-	 *
-	 * @return {@code true} when the value type is assignable to the target type.
-	 */
-	private boolean isAssignable(@Nonnull Type targetType, @Nonnull Type valueType) {
-		// Base case, same type.
-		if (targetType.equals(valueType))
-			return true;
-
-		// Arrays can only be assigned to Object, and Object can be assigned from any array.
-		int targetSort = targetType.getSort();
-		int valueSort = valueType.getSort();
-		if (targetSort == Type.ARRAY || valueSort == Type.ARRAY)
-			return targetSort == Type.OBJECT && Types.OBJECT_TYPE.equals(targetType);
-
-		// For non-object types, these are not assignable between one another.
-		// This method is used strictly for checking casts and object type operations.
-		//
-		// If either type is not an object, then the cast is only valid if both types are the same primitive type,
-		// which is already handled by the equality check above.
-		if (targetSort != Type.OBJECT || valueSort != Type.OBJECT)
-			return false;
-
-		// Check inheritance graph for assignability of reference types.
-		return inheritanceGraph.isAssignableFrom(targetType.getInternalName(), valueType.getInternalName());
+		return !context.isAssignable(inheritanceGraph, componentType, valueType);
 	}
 
 	/**

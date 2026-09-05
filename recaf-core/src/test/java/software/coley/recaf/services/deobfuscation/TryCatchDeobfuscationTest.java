@@ -275,6 +275,34 @@ public class TryCatchDeobfuscationTest extends TransformerTestBase {
 	}
 
 	@Test
+	void removeStringConstantCheckcastCastException() {
+		String asm = """
+				.method public static example ()V {
+					exceptions: {
+				       {  A,  B,  C, Ljava/lang/ClassCastException; }
+				    },
+				    code: {
+				    A:
+				        ldc "foo"
+				        checkcast java/lang/String
+				        pop
+				    B:
+				        goto END
+				    C:
+				        pop
+				    END:
+				        return
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(RedundantTryCatchRemovingTransformer.class), dis -> {
+			assertEquals(0, StringUtil.count("exceptions:", dis), "Expected to remove the impossible cast exception");
+			assertEquals(1, StringUtil.count("checkcast", dis), "Expected the independent catch pass to keep the cast itself");
+			assertEquals(1, StringUtil.count("pop", dis), "Expected to remove the dead catch handler");
+		});
+	}
+
+	@Test
 	void removeSameTypeCheckcastCastException() {
 		String asm = """
 				.method public static example ()V {

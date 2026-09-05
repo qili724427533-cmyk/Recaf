@@ -928,6 +928,24 @@ public class FoldingDeobfuscationTest extends TransformerTestBase {
 	}
 
 	@Test
+	void opaqueCast() {
+		String asm = """
+				.method public static example ()Ljava/lang/String; {
+				    code: {
+				    A:
+				        ldc "foo"
+				        checkcast java/lang/String
+				        areturn
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(OpaqueConstantFoldingTransformer.class), dis -> {
+			assertEquals(0, StringUtil.count("checkcast", dis), "Expected to remove the redundant string cast");
+			assertEquals(1, StringUtil.count("ldc \"foo\"", dis), "Expected to retain the string constant");
+		});
+	}
+
+	@Test
 	void foldDoubleDup2X1() {
 		String asm = """
 				.method public static example (I)I {

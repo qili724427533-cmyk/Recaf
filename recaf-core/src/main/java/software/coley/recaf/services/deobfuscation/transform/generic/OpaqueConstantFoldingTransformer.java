@@ -6,6 +6,7 @@ import jakarta.enterprise.context.Dependent;
 import jakarta.inject.Inject;
 import me.darknet.assembler.printer.JvmPrinterUtil;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.IincInsnNode;
@@ -15,6 +16,7 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Frame;
 import software.coley.collections.Lists;
@@ -67,6 +69,7 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 	private static final int[] ARG_2_SIZE = new int[255];
 	private final InheritanceGraphService graphService;
 	private InheritanceGraph inheritanceGraph;
+	private JvmTransformerContext context;
 
 	@Inject
 	public OpaqueConstantFoldingTransformer(@Nonnull InheritanceGraphService graphService) {
@@ -75,6 +78,8 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 
 	@Override
 	public void setup(@Nonnull JvmTransformerContext context, @Nonnull Workspace workspace) {
+		this.context = context;
+
 		inheritanceGraph = graphService.getOrCreateInheritanceGraph(workspace);
 	}
 
@@ -347,6 +352,15 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 			AbstractInsnNode instruction = instructions.get(i);
 			int opcode = instruction.getOpcode();
 
+			// Casting preserves the stack size, so it is skipped by the sequence walker below.
+			// Handle known-safe casts separately before looking for value-consuming operations.
+			if (opcode == CHECKCAST) {
+				Frame<ReValue> frame = frames[i];
+				if (frame != null && foldRedundantCheckcast(instructions, instruction, frame))
+					dirty = true;
+				continue;
+			}
+
 			// Iterate until we find an instruction that consumes values off the stack as part of an "operation".
 			int sizeConsumed = getSizeConsumed(instruction);
 			if (sizeConsumed == 0 || (opcode >= POP && opcode <= DUP2_X2))
@@ -600,6 +614,41 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 
 		// Evaluation failed, this is to be expected as some cases cannot always be evaluated.
 		return topValue;
+	}
+
+	/**
+	 * Removes a checkcast when the analyzed value already has a known assignable runtime type.
+	 *
+	 * @param instructions
+	 * 		Instructions to operate on.
+	 * @param instruction
+	 * 		The checkcast instruction to inspect.
+	 * @param frame
+	 * 		The stack frame before the instruction.
+	 *
+	 * @return {@code true} when the checkcast was redundant and replaced with a nop.
+	 */
+	private boolean foldRedundantCheckcast(@Nonnull InsnList instructions,
+	                                       @Nonnull AbstractInsnNode instruction,
+	                                       @Nonnull Frame<ReValue> frame) {
+		// Skip if this isn't a checkcast instruction or the stack is empty.
+		if (!(instruction instanceof TypeInsnNode cast) || frame.getStackSize() == 0)
+			return false;
+
+		// A known object value has an exact runtime type, so an assignable cast cannot throw or refine the verifier type.
+		ReValue value = frame.getStack(frame.getStackSize() - 1);
+		if (!(value instanceof ObjectValue object) || !object.hasKnownValue())
+			return false;
+
+		// If the value's runtime type is assignable to the cast type, then the checkcast is redundant.
+		Type valueType = object.type();
+		String descriptor = cast.desc;
+		Type targetType = descriptor.startsWith("[") ? Type.getType(descriptor) : Type.getObjectType(descriptor);
+		if (!context.isAssignable(inheritanceGraph, targetType, valueType))
+			return false;
+
+		instructions.set(instruction, new InsnNode(NOP));
+		return true;
 	}
 
 	/**
