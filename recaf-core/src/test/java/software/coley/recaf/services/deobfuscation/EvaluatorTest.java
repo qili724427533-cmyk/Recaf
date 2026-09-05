@@ -9,6 +9,8 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import software.coley.recaf.info.JvmClassInfo;
 import software.coley.recaf.services.inheritance.InheritanceGraph;
@@ -24,6 +26,7 @@ import software.coley.recaf.util.analysis.eval.EvaluationResult;
 import software.coley.recaf.util.analysis.eval.EvaluationThrowsResult;
 import software.coley.recaf.util.analysis.eval.EvaluationYieldResult;
 import software.coley.recaf.util.analysis.eval.Evaluator;
+import software.coley.recaf.util.analysis.eval.FieldCache;
 import software.coley.recaf.util.analysis.eval.FieldCacheManager;
 import software.coley.recaf.util.analysis.eval.InstancedObjectValue;
 import software.coley.recaf.util.analysis.lookup.InvokeVirtualLookup;
@@ -34,6 +37,7 @@ import software.coley.recaf.util.analysis.value.ObjectValue;
 import software.coley.recaf.util.analysis.value.ReValue;
 import software.coley.recaf.util.analysis.value.StringValue;
 import software.coley.recaf.util.analysis.value.ThrowableValue;
+import software.coley.recaf.util.analysis.value.UninitializedValue;
 import software.coley.recaf.workspace.model.Workspace;
 
 import javax.crypto.AEADBadTagException;
@@ -2111,6 +2115,85 @@ public class EvaluatorTest extends TransformerTestBase {
 		EvaluationResult result = evaluateResult(compiled, "run", "()I", null, List.of(), true, get("StaticState"));
 		EvaluationYieldResult yielded = assertInstanceOf(EvaluationYieldResult.class, result);
 		assertIntValue(1, yielded.value());
+	}
+
+	@Test
+	void testOverrideNodeForStaticInitializerEval() {
+		// Add the common state class to the workspace.
+		compileStaticState();
+
+		// Get the class as a node, then get its static initializer.
+		JvmClassInfo classInfo = get("StaticState");
+		ClassNode classNode = new ClassNode();
+		classInfo.getClassReader().accept(classNode, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+		MethodNode initializer = classNode.methods.stream()
+				.filter(method -> "<clinit>".equals(method.name) && "()V".equals(method.desc))
+				.findFirst()
+				.orElseThrow();
+
+		// Replace the constant value in the initializer with a different value to validate that the evaluator uses the supplied node.
+		for (AbstractInsnNode instruction : initializer.instructions.toArray())
+			if (instruction.getOpcode() == Opcodes.ICONST_1)
+				initializer.instructions.set(instruction, new InsnNode(Opcodes.ICONST_2));
+
+		Workspace evaluationWorkspace = TestClassUtils.fromBundle(TestClassUtils.fromClasses(classInfo));
+		JvmTransformerContext context = new JvmTransformerContext(evaluationWorkspace, evaluationWorkspace.getPrimaryResource(), Collections.emptyList());
+		FieldCacheManager fieldCacheManager = new FieldCacheManager();
+		Evaluator evaluator = new Evaluator(evaluationWorkspace, context.newInterpreter(new InheritanceGraph(evaluationWorkspace)), fieldCacheManager, 1000, false, true);
+
+		// Evaluate the class initializer using the modified node. The static field value should be 2 instead of 1.
+		// The special case evaluate call for static initializers also yields UNINITIALIZED_VALUE for successful evaluation, since the initializer doesn't normally return a value.
+		EvaluationYieldResult yielded = assertInstanceOf(EvaluationYieldResult.class, evaluator.evaluateClassInitializer(classNode));
+		assertSame(UninitializedValue.UNINITIALIZED_VALUE, yielded.value());
+
+		// The static field cache should now contain the updated value of 2 for the static field rather than the original 1.
+		FieldCache fields = fieldCacheManager.getStaticFieldCache("StaticState");
+		assertIntValue(2, fields.getField("StaticState", "VALUE", "I"));
+	}
+
+	@Test
+	void testOverrideNodeAllowsEvalOfClassNotInTheWorkspace() {
+		// Create a workspace with the common 'Example' class.
+		compile("static int host() { return 0; }");
+		JvmClassInfo classInfo = get(CLASS_NAME);
+		Workspace evaluationWorkspace = TestClassUtils.fromBundle(TestClassUtils.fromClasses(classInfo));
+
+		// Setup evaluator.
+		JvmTransformerContext context = new JvmTransformerContext(evaluationWorkspace,
+				evaluationWorkspace.getPrimaryResource(), Collections.emptyList());
+		Evaluator evaluator = new Evaluator(evaluationWorkspace,
+				context.newInterpreter(new InheritanceGraph(evaluationWorkspace)),
+				new FieldCacheManager(), 1000, false, false);
+
+		// Build a class that can only be reached through the evaluator's override map.
+		String syntheticName = "synthetic/Generated";
+		ClassNode synthetic = new ClassNode();
+		synthetic.version = Opcodes.V17;
+		synthetic.access = Opcodes.ACC_PUBLIC;
+		synthetic.name = syntheticName;
+		synthetic.superName = "java/lang/Object";
+
+		MethodNode helper = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, "helper", "()I", null, null);
+		helper.instructions.add(new InsnNode(Opcodes.ICONST_2));
+		helper.instructions.add(new InsnNode(Opcodes.IRETURN));
+		helper.maxStack = 1;
+		helper.maxLocals = 0;
+		synthetic.methods.add(helper);
+
+		MethodNode run = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "run", "()I", null, null);
+		run.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, syntheticName, "helper", "()I", false));
+		run.instructions.add(new InsnNode(Opcodes.IRETURN));
+		run.maxStack = 1;
+		run.maxLocals = 0;
+		synthetic.methods.add(run);
+
+		// Register the override.
+		evaluator.registerClassNodeOverride(synthetic);
+
+		// The evaluator should be able to evaluate the synthetic class even though it is not in the workspace.
+		assertTrue(evaluator.canEvaluate(syntheticName, "run", "()I"));
+		EvaluationYieldResult yielded = assertInstanceOf(EvaluationYieldResult.class, evaluator.evaluate(syntheticName, "run", "()I", null, List.of()));
+		assertIntValue(2, yielded.value());
 	}
 
 	@Test
