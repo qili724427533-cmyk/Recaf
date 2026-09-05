@@ -295,6 +295,17 @@ public class Types {
 	}
 
 	/**
+	 * @param desc
+	 * 		Descriptor to check.
+	 *
+	 * @return {@code true} if it is a wide type.
+	 */
+	public static boolean isWide(@Nullable String desc) {
+		if (desc == null) return false;
+		return "D".equals(desc) || "J".equals(desc);
+	}
+
+	/**
 	 * @param opcode
 	 * 		Some instruction opcode.
 	 *
