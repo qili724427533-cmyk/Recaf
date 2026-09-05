@@ -191,7 +191,8 @@ public class AsmInsnUtil implements Opcodes {
 			case Type.FLOAT -> new VarInsnNode(FLOAD, index);
 			case Type.DOUBLE -> new VarInsnNode(DLOAD, index);
 			case Type.LONG -> new VarInsnNode(LLOAD, index);
-			default -> new VarInsnNode(ALOAD, index);
+			case Type.ARRAY, Type.OBJECT -> new VarInsnNode(ALOAD, index);
+			default -> throw new IllegalArgumentException("Unsupported variable type sort: " + typeSort);
 		};
 	}
 
@@ -205,12 +206,25 @@ public class AsmInsnUtil implements Opcodes {
 	 */
 	@Nonnull
 	public static VarInsnNode createVarStore(int index, @Nonnull Type variableType) {
-		return switch (variableType.getSort()) {
+		return createVarStore(index, variableType.getSort());
+	}
+
+	/**
+	 * @param index
+	 * 		Variable index.
+	 * @param typeSort
+	 * 		Variable type sort.
+	 *
+	 * @return Store instruction for variable type at the given index.
+	 */
+	public static VarInsnNode createVarStore(int index, int typeSort) {
+		return switch (typeSort) {
 			case Type.BOOLEAN, Type.CHAR, Type.BYTE, Type.SHORT, Type.INT -> new VarInsnNode(ISTORE, index);
 			case Type.FLOAT -> new VarInsnNode(FSTORE, index);
 			case Type.DOUBLE -> new VarInsnNode(DSTORE, index);
 			case Type.LONG -> new VarInsnNode(LSTORE, index);
-			default -> new VarInsnNode(ASTORE, index);
+			case Type.ARRAY, Type.OBJECT -> new VarInsnNode(ASTORE, index);
+			default -> throw new IllegalArgumentException("Unsupported variable type sort: " + typeSort);
 		};
 	}
 
