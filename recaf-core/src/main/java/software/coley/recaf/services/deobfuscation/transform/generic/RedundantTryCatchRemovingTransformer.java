@@ -184,7 +184,13 @@ public class RedundantTryCatchRemovingTransformer implements JvmClassTransformer
 		tryCatches = removeShadowedRanges(instructions, tryCatches);
 
 		// Last pass requires frame analysis, so we do it after the cheaper passes to minimize the number of frames we need to analyze.
-		Frame<ReValue>[] frames = context.analyze(inheritanceGraph, declaringClass, method);
+		Frame<ReValue>[] frames;
+		try {
+			frames = context.analyze(inheritanceGraph, declaringClass, method);
+		} catch (Throwable t) {
+			// Can't analyze the method, so we can't prune any try-catch blocks.
+			return false;
+		}
 		tryCatches = removeImpossibleCatches(instructions, frames, tryCatches);
 
 		// If the final state is the same as the original state, we don't need to update anything.
