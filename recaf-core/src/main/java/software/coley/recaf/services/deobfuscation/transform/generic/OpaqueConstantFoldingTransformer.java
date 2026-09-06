@@ -866,7 +866,7 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 			return null;
 
 		// Check for null. Not covered by 'known value' so we need to handle it explicitly.
-		if (value instanceof ObjectValue objectValue && objectValue.isNull())
+		if (value == ObjectValue.VAL_OBJECT_NULL || value instanceof ObjectValue objectValue && objectValue.isNull())
 			return new InsnNode(Opcodes.ACONST_NULL);
 
 		// Skip if value is not known.
