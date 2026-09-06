@@ -140,14 +140,18 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 	 *
 	 * @return {@code true} when any stack operation was transformed.
 	 *
-	 * @throws TransformationException
-	 * 		When the method code couldn't be analyzed.
 	 */
 	private boolean pass1StackManipulation(@Nonnull JvmTransformerContext context, @Nonnull ClassNode node,
-	                                       @Nonnull MethodNode method, @Nonnull InsnList instructions) throws TransformationException {
+	                                       @Nonnull MethodNode method, @Nonnull InsnList instructions) {
 		boolean dirty = false;
 		int insertions = 0;
-		Frame<ReValue>[] frames = context.analyze(inheritanceGraph, node, method);
+		Frame<ReValue>[] frames;
+		try {
+			frames = context.analyze(inheritanceGraph, node, method);
+		} catch (Throwable t) {
+			// Can't analyze the method, so we can't do any stack manipulation.
+			return false;
+		}
 		for (int i = 1; i < instructions.size() - 1; i++) {
 			Frame<ReValue> frame = frames[i - insertions];
 			if (frame == null || frame.getStackSize() == 0)
@@ -338,14 +342,18 @@ public class OpaqueConstantFoldingTransformer implements JvmClassTransformer {
 	 *
 	 * @return {@code true} when any stack operation was transformed.
 	 *
-	 * @throws TransformationException
-	 * 		When the method code couldn't be analyzed.
 	 */
 	private boolean pass2SequenceFolding(@Nonnull JvmTransformerContext context, @Nonnull ClassNode node,
-	                                     @Nonnull MethodNode method, @Nonnull InsnList instructions) throws TransformationException {
+	                                     @Nonnull MethodNode method, @Nonnull InsnList instructions) {
 		boolean dirty = false;
 		List<AbstractInsnNode> sequence = new ArrayList<>();
-		Frame<ReValue>[] frames = context.analyze(inheritanceGraph, node, method);
+		Frame<ReValue>[] frames;
+		try {
+			frames = context.analyze(inheritanceGraph, node, method);
+		} catch (Throwable t) {
+			// Can't analyze the method, so we can't do any stack manipulation.
+			return false;
+		}
 		int endIndex = instructions.size() - 1;
 		int unknownState = -1;
 		for (int i = 1; i < endIndex; i++) {
