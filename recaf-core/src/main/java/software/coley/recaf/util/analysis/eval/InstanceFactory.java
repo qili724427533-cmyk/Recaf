@@ -2028,7 +2028,7 @@ public class InstanceFactory extends BasicLookupUtils {
 	 * @param value
 	 * 		Evaluator object to unwrap.
 	 *
-	 * @return Host-backed object, scalar, or {@code null}.
+	 * @return Host-backed object, primitive, or {@code null}.
 	 *
 	 * @throws IllegalArgumentException
 	 * 		When the value is unknown or evaluator-only.

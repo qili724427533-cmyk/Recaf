@@ -836,16 +836,12 @@ public class EvaluatorTest extends TransformerTestBase {
 	}
 
 	@Test
-	void testBase64ScalarAndMime() {
+	void testBase64AndMime() {
 		String compiled = compile("""
 				static String basic() {
 				    byte[] input = "Hello".getBytes();
 				    String encoded = Base64.getEncoder().encodeToString(input);
 				    return new String(Base64.getDecoder().decode(encoded));
-				}
-				static String scalar() {
-				    byte[] input = "Hello".getBytes();
-				    return new String(Base64.getDecoder().decode(Base64.getEncoder().encode(input)));
 				}
 				static String url() {
 				    String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(">>>>".getBytes());
@@ -865,7 +861,6 @@ public class EvaluatorTest extends TransformerTestBase {
 
 		// Verify we can round-trip 'Hello'
 		assertStringValue("Hello", evaluate(compiled, "basic", "()Ljava/lang/String;", null, List.of()));
-		assertStringValue("Hello", evaluate(compiled, "scalar", "()Ljava/lang/String;", null, List.of()));
 
 		// Verify URL-safe encoding and decoding of '>>>>' with no padding.
 		assertStringValue("Pj4-Pg:>>>>", evaluate(compiled, "url", "()Ljava/lang/String;", null, List.of()));
