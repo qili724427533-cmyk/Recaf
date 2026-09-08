@@ -583,6 +583,75 @@ public class Types {
 	}
 
 	/**
+	 * @param arrayType
+	 * 		The array type to check.
+	 * @param valueType
+	 * 		The value type to check for storing into the array.
+	 * @param recursive
+	 * 		Whether to check for nested arrays if the array type is multi-dimensional.
+	 *
+	 * @return {@code true} if the value type can be stored in the array type, {@code false} otherwise.
+	 */
+	public static boolean isArrayStorable(@Nonnull Type arrayType, @Nonnull Type valueType, boolean recursive) {
+		if (arrayType.getSort() != Type.ARRAY)
+			return false;
+
+		Type componentType = Type.getType(arrayType.getDescriptor().substring(1));
+		if (isArrayStoreCompatible(componentType, valueType))
+			return true;
+
+		if (recursive && componentType.getSort() == Type.ARRAY)
+			return isArrayStorable(componentType, valueType, true);
+
+		return false;
+	}
+
+	/**
+	 * @param arrayComponent
+	 * 		The component type of the array.
+	 * @param value
+	 * 		The value type to check for storing into the array.
+	 *
+	 * @return {@code true} if the value type can be stored in the array component type, {@code false} otherwise.
+	 */
+	public static boolean isArrayStoreCompatible(@Nonnull Type arrayComponent, @Nonnull Type value) {
+		if (arrayComponent.equals(value))
+			return true;
+
+		// Primitive widening rules allow narrower types to be stored in wider types.
+		int aSort = arrayComponent.getSort();
+		int vSort = value.getSort();
+		if (aSort >= Type.BOOLEAN && aSort <= Type.DOUBLE && vSort >= Type.BOOLEAN && vSort <= Type.DOUBLE) {
+			if (aSort == Type.BOOLEAN || vSort == Type.BOOLEAN)
+				return false;
+			return switch (aSort) {
+				case Type.DOUBLE -> true;
+				case Type.FLOAT -> vSort != Type.DOUBLE;
+				case Type.LONG -> vSort <= Type.LONG && vSort != Type.FLOAT;
+				case Type.INT -> vSort == Type.BYTE || vSort == Type.SHORT || vSort == Type.CHAR || vSort == Type.INT;
+				case Type.SHORT -> vSort == Type.BYTE || vSort == Type.SHORT;
+				case Type.CHAR, Type.BYTE -> false;
+				default -> false;
+			};
+		}
+
+		// Object/array types can be stored in each other if they are compatible.
+		// We don't do any sort of special 'isAssignableFrom' checks here, just a simple check for object/array types.
+		if (aSort == Type.OBJECT || aSort == Type.ARRAY) {
+			if (aSort == Type.OBJECT && "java/lang/Object".equals(arrayComponent.getInternalName()))
+				return vSort == Type.OBJECT || vSort == Type.ARRAY;
+
+			if (aSort == Type.ARRAY && vSort == Type.ARRAY) {
+				Type tComp = Type.getType(arrayComponent.getDescriptor().substring(1));
+				Type sComp = Type.getType(value.getDescriptor().substring(1));
+				return isArrayStoreCompatible(tComp, sComp);
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Types of signature use-cases.
 	 *
 	 * @see #isValidSignature(String, SignatureContext)

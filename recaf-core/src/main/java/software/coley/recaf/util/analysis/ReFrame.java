@@ -260,7 +260,9 @@ public class ReFrame extends Frame<ReValue> {
 			ReValue stack = getStack(i);
 			if (stack == existing) {
 				setStack(i, replacement);
-			} else if (stack instanceof ArrayValue stackArray) {
+			} else if (stack instanceof ArrayValue stackArray
+					&& (existing instanceof ArrayValue ? stackArray.containsTrackedSubArray() : true)
+					&& stackArray.canStore(replacement, true)) {
 				ArrayValue updatedStackArray = stackArray.updatedCopyIfContained(existing, replacement);
 				setStack(i, updatedStackArray);
 			}
@@ -269,7 +271,9 @@ public class ReFrame extends Frame<ReValue> {
 			ReValue local = getLocal(i);
 			if (local == existing) {
 				setLocal(i, replacement);
-			} else if (local instanceof ArrayValue stackArray) {
+			} else if (local instanceof ArrayValue stackArray
+					&& (existing instanceof ArrayValue ? stackArray.containsTrackedSubArray() : true)
+					&& stackArray.canStore(replacement, true)) {
 				ArrayValue updatedStackArray = stackArray.updatedCopyIfContained(existing, replacement);
 				setLocal(i, updatedStackArray);
 			}

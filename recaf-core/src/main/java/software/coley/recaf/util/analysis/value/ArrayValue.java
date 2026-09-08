@@ -6,6 +6,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import software.coley.recaf.util.Types;
 import software.coley.recaf.util.analysis.Nullness;
+import software.coley.recaf.util.analysis.ReFrame;
 import software.coley.recaf.util.analysis.value.impl.ArrayValueImpl;
 
 import java.util.Arrays;
@@ -96,6 +97,30 @@ public interface ArrayValue extends ObjectValue {
 				i -> multiANewArray(Types.undimension(type), Arrays.copyOfRange(dimensions, 1, dimensions.length))
 		);
 	}
+
+	/**
+	 * @param value
+	 * 		Value to check.
+	 * @param recursive
+	 *        {@code true} to check for any nested arrays, {@code false} to only check the top-level array.
+	 *
+	 * @return {@code true} if the given value can be stored in this array, {@code false} otherwise.
+	 */
+	default boolean canStore(@Nonnull ReValue value, boolean recursive) {
+		Type valueType = value.type();
+		if (valueType == null)
+			return false;
+		return Types.isArrayStorable(type(), valueType, recursive);
+	}
+
+	/**
+	 * This exists strictly for performance reasons. In {@link ReFrame#replaceValue(ReValue, ReValue)} frames with many
+	 * arrays + nested arrays can be very slow to update. If we know that an array does not contain any nested arrays,
+	 * we can skip the recursive search for the value to replace.
+	 *
+	 * @return {@code true} when this array contains another sub-array, {@code false} otherwise.
+	 */
+	boolean containsTrackedSubArray();
 
 	/**
 	 * @param index

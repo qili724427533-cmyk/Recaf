@@ -38,6 +38,7 @@ import software.coley.recaf.util.analysis.value.ReValue;
 import software.coley.recaf.util.analysis.value.StringValue;
 import software.coley.recaf.util.analysis.value.ThrowableValue;
 import software.coley.recaf.util.analysis.value.UninitializedValue;
+import software.coley.recaf.util.analysis.value.impl.ArrayValueImpl;
 import software.coley.recaf.workspace.model.Workspace;
 
 import javax.crypto.AEADBadTagException;
@@ -216,6 +217,36 @@ public class EvaluatorTest extends TransformerTestBase {
 		assertIntValue(9, evaluate(compiled, "hostCaughtReferenceStore", "([Ljava/lang/String;)I", null, List.of(new InstancedObjectValue<>(new String[]{"left", "right"}))));
 		assertStringValue("ab", evaluate(compiled, "hostBuilder", "([C)Ljava/lang/String;", null, List.of(new InstancedObjectValue<>(new char[]{'a', 'b'}))));
 		assertIntValue(20, evaluate(compiled, "hostArraycopy", "([I[I)I", null, List.of(new InstancedObjectValue<>(new int[]{10, 20}), new InstancedObjectValue<>(new int[]{0, 0}))));
+	}
+
+	@Test
+	void testTrackedArrayContainmentHints() {
+		// Array of Object[] with String values, no nested arrays.
+		Type objectArrayType = Type.getType("[Ljava/lang/Object;");
+		ArrayValue objectArrayValue = new ArrayValueImpl(objectArrayType, Nullness.NOT_NULL, 2, index -> ObjectValue.string("value-" + index));
+		assertFalse(objectArrayValue.containsTrackedSubArray());
+
+		// Array of Object[] with nested int[] arrays, should be tracked.
+		ArrayValue nestedObjects = new ArrayValueImpl(objectArrayType, Nullness.NOT_NULL, 1, index -> ArrayValue.of(Type.getType("[I"), Nullness.NOT_NULL, 1));
+		assertTrue(nestedObjects.containsTrackedSubArray());
+
+		// Array of Object[] with unknown values, should not be tracked. Values aren't tracked.
+		ArrayValue unknownObjects = ArrayValue.of(objectArrayType, Nullness.UNKNOWN);
+		assertFalse(unknownObjects.containsTrackedSubArray());
+
+		// Array of String[] with unknown values, should not be tracked. Values aren't tracked.
+		ArrayValue strings = ArrayValue.of(Type.getType("[Ljava/lang/String;"), Nullness.UNKNOWN);
+		assertFalse(strings.containsTrackedSubArray());
+
+		// Array of Object[] with a nested int[] array. Both the object + int arrays have value tracking, so the outer array should indicate it contains a tracked sub-array.
+		ArrayValue nestedArray = ArrayValue.of(Type.getType("[I"), Nullness.NOT_NULL, 1);
+		ArrayValue nestedReplacement = nestedArray.setValue(0, IntValue.VAL_1);
+		ArrayValue outer = new ArrayValueImpl(objectArrayType, Nullness.NOT_NULL, 1, index -> nestedArray);
+		ArrayValue updatedOuter = outer.updatedCopyIfContained(nestedArray, nestedReplacement);
+		assertNotSame(outer, updatedOuter);
+		assertTrue(outer.containsTrackedSubArray());
+		assertSame(nestedReplacement, updatedOuter.getValue(0));
+		assertSame(objectArrayValue, objectArrayValue.updatedCopyIfContained(nestedArray, nestedReplacement));
 	}
 
 	@Test
