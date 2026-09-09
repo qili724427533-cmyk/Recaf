@@ -61,7 +61,15 @@ public class BasicLookupUtils {
 	protected static double d(@Nonnull DoubleValue value) {return value.value().getAsDouble();}
 
 	@SuppressWarnings("all")
-	protected static String str(@Nonnull StringValue value) {return value.getText().get();}
+	protected static String str(@Nonnull ObjectValue value) {
+		if (value.isNull())
+			return null;
+		if (value instanceof StringValue string)
+			return string.getText().orElseThrow(() -> new IllegalArgumentException("Unknown string value"));
+		if (value instanceof InstancedObjectValue<?> instance && instance.getRealInstance() instanceof String string)
+			return string;
+		throw new IllegalArgumentException("Unsupported string unwrap: " + value);
+	}
 
 	protected static Object objl(@Nonnull ObjectValue value) {
 		// Yield object type literally instead of auto-casting at call-site with T.
