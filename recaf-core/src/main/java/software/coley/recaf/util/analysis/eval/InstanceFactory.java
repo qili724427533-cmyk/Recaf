@@ -11,6 +11,7 @@ import software.coley.recaf.util.analysis.ReInterpreter;
 import software.coley.recaf.util.analysis.gen.InstanceMapperGenerator;
 import software.coley.recaf.util.analysis.gen.InstanceMethodInvokeHandlerGenerator;
 import software.coley.recaf.util.analysis.gen.InstanceStaticMapperGenerator;
+import software.coley.recaf.util.analysis.lookup.BasicInvokeStaticLookup;
 import software.coley.recaf.util.analysis.lookup.BasicLookupUtils;
 import software.coley.recaf.util.analysis.value.ArrayValue;
 import software.coley.recaf.util.analysis.value.DoubleValue;
@@ -47,6 +48,7 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
@@ -1150,6 +1152,10 @@ public class InstanceFactory extends BasicLookupUtils {
 			receiver.init(requireRealInstance(args.get(0), Key.class));
 			return null;
 		});
+		registerMethodHandler("javax/crypto/Mac", "update", "(B)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
+			receiver.update(b((IntValue) args.get(0)));
+			return null;
+		});
 		registerMethodHandler("javax/crypto/Mac", "update", "([B)V", (ReFrame frame, ReValue host, Mac receiver, List<ReValue> args) -> {
 			receiver.update(arrb(args.get(0)));
 			return null;
@@ -1513,7 +1519,8 @@ public class InstanceFactory extends BasicLookupUtils {
 		registerMapper(ArrayList.class, "(I)V", (host, parameters) -> new ArrayList(i((IntValue) parameters.get(0))));
 
 		// javax.crypto.spec
-		registerMapper(SecretKeySpec.class, "([BLjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb(parameters.get(0)), str((StringValue) parameters.get(1))));
+		registerMapper(SecretKeySpec.class, "([BLjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb(parameters.get(0)), str((ObjectValue) parameters.get(1))));
+		registerMapper(SecretKeySpec.class, "([BIILjava/lang/String;)V", (host, parameters) -> new SecretKeySpec(arrb(parameters.get(0)), i((IntValue) parameters.get(1)), i((IntValue) parameters.get(2)), str((ObjectValue) parameters.get(3))));
 		registerMapper(GCMParameterSpec.class, "(I[B)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb(parameters.get(1))));
 		registerMapper(GCMParameterSpec.class, "(I[BII)V", (host, parameters) -> new GCMParameterSpec(i((IntValue) parameters.get(0)), arrb(parameters.get(1)), i((IntValue) parameters.get(2)), i((IntValue) parameters.get(3))));
 		registerMapper(IvParameterSpec.class, "([B)V", (host, parameters) -> new IvParameterSpec(arrb(parameters.get(0))));
@@ -1622,6 +1629,8 @@ public class InstanceFactory extends BasicLookupUtils {
 	 * Register static methods that mutate evaluator state rather than mapping a host instance.
 	 */
 	private void registerStaticMethodHandlers() {
+		registerStaticArrays();
+
 		// Its just one method. How complex can it be?
 		//  [aware.gif]
 		registerStaticMethodHandler("java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V", new MethodInvokeStaticHandler() {
@@ -1759,7 +1768,28 @@ public class InstanceFactory extends BasicLookupUtils {
 					throw new ArrayStoreException();
 			}
 		});
+	}
 
+	/**
+	 * Methods for {@link Arrays} that mutate the contents, and return {@code void}.
+	 *
+	 * @see BasicInvokeStaticLookup #arrays() for static methods that yield values.
+	 */
+	private void registerStaticArrays() {
+		// TODO: Other fill variants
+		registerStaticMethodHandler("java/util/Arrays", "fill", "([BB)V", (frame, interpreter, instruction, args) -> {
+			ReValue destinationValue = args.get(0);
+			byte[] destination = arrb(destinationValue);
+			Arrays.fill(destination, b((IntValue) args.get(1)));
+			replaceByteArrayContents(frame, destinationValue, destination, 0, destination.length);
+			return null;
+		});
+		
+		// TODO: Parallel methods
+
+		// TODO: sort
+
+		// TODO: setAll
 	}
 
 	/**
