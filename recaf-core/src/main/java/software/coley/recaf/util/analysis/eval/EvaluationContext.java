@@ -28,6 +28,7 @@ public final class EvaluationContext {
 	final Set<String> initializingClasses;
 	final Map<String, EvaluationResult> failedClassInitializers;
 	final Map<String, ClassNode> classNodeOverrides;
+	final Map<String, ClassNode> workspaceNodeCache;
 	final EvaluationModelHeap modelHeap;
 	final VirtualClock clock;
 	final SimulatedScheduler scheduler;
@@ -46,6 +47,7 @@ public final class EvaluationContext {
 		initializingClasses = new HashSet<>();
 		failedClassInitializers = new HashMap<>();
 		classNodeOverrides = new HashMap<>(evaluator.getClassNodeOverrides()); // Snapshot overrides so later caller changes cannot switch bytecode halfway through an evaluation.
+		workspaceNodeCache = new HashMap<>(); // Cache, as constant re-reads from the workspace can be expensive.
 		modelHeap = new EvaluationModelHeap();
 		clock = new VirtualClock();
 		models = new EvaluationModelRegistry(evaluator);

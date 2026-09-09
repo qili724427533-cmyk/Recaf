@@ -338,6 +338,8 @@ public class Evaluator {
 	                                  @Nonnull EvaluationContext context) throws UnknownValueException {
 		// Get the class node from the workspace or the per-evaluation override.
 		ClassNode classNode = context.classNodeOverrides.get(className);
+		if (classNode == null)
+			classNode = context.workspaceNodeCache.get(className);
 		if (classNode == null) {
 			ClassPathNode classPath = workspace.findClass(evaluateInternals, className);
 			if (classPath == null)
@@ -350,6 +352,7 @@ public class Evaluator {
 			classNode = new ClassNode();
 			ClassReader reader = classInfo.getClassReader();
 			reader.accept(classNode, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+			context.workspaceNodeCache.put(className, classNode);
 		}
 
 		// Find the method node in the class node and evaluate it.
