@@ -535,14 +535,14 @@ public class EvaluatorTest extends TransformerTestBase {
 		Evaluator evaluator = createEvaluator();
 		List<String> thrown = new ArrayList<>();
 		EvaluationListener listener = new EvaluationListener() {
-			private final Map<MethodNode, AbstractInsnNode> lastInstruction = new IdentityHashMap<>();
+			private final Map<ReFrame, AbstractInsnNode> lastInstruction = new IdentityHashMap<>();
 
 			@Override
 			public void onInstruction(@Nullable ClassNode classNode,
 			                          @Nullable MethodNode methodNode,
 			                          @Nonnull AbstractInsnNode instruction,
 			                          @Nonnull ReFrame frame) {
-				lastInstruction.put(methodNode, instruction);
+				lastInstruction.put(frame, instruction);
 			}
 
 			@Override
@@ -551,7 +551,7 @@ public class EvaluatorTest extends TransformerTestBase {
 			                          @Nonnull ReFrame frame,
 			                          @Nonnull ReValue exception,
 			                          @Nonnull List<ClassMethodPair> stack) {
-				AbstractInsnNode throwingInsn = lastInstruction.get(methodNode).getNext();
+				AbstractInsnNode throwingInsn = lastInstruction.get(frame).getNext();
 				thrown.add(String.join(":", stackMethodNames(stack)) + ":" + JvmPrinterUtil.toString(throwingInsn) + ":" + exception);
 			}
 		};
