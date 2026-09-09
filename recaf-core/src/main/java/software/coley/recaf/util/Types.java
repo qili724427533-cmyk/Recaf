@@ -397,7 +397,7 @@ public class Types {
 	public static int getNormalizedSort(int sort) {
 		if (sort == Type.ARRAY)
 			sort = Type.OBJECT;
-		else if (sort > 0 && sort < Type.INT)
+		else if (sort > Type.VOID && sort < Type.INT)
 			sort = Type.INT;
 		return sort;
 	}

@@ -747,7 +747,8 @@ public class VariableFoldingTransformer implements JvmClassTransformer {
 	 * @return Key of typed variable.
 	 */
 	private static int key(int slot, int typeSort) {
-		return slot | (typeSort << 16);
+		int normalizedSort = Types.getNormalizedSort(typeSort);
+		return slot | (normalizedSort << 16);
 	}
 
 	/**
