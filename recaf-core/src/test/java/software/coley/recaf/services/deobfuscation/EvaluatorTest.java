@@ -650,6 +650,26 @@ public class EvaluatorTest extends TransformerTestBase {
 	}
 
 	@Test
+	void testSimulatedEnumConstruction() {
+		String compiled = compileFull(CLASS_NAME, """
+				enum Example {
+				    ALPHA(4), BETA(9);
+				
+				    final int value;
+				
+				    Example(int value) { this.value = value; }
+				
+				    static String run() {
+				        return ALPHA.name() + ":" + ALPHA.ordinal() + ":" + ALPHA.value + ";"
+				            + BETA.name() + ":" + BETA.ordinal() + ":" + BETA.value;
+				    }
+				}
+				""");
+		EvaluationYieldResult result = assertInstanceOf(EvaluationYieldResult.class, evaluateResult(compiled, "run", "()Ljava/lang/String;", null, List.of(), true));
+		assertStringValue("ALPHA:0:4;BETA:1:9", result.value());
+	}
+
+	@Test
 	void testSimulatedThreadJoinWithoutStart() {
 		String compiled = compile("""
 				static int childState() throws Exception {
