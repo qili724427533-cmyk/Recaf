@@ -3,7 +3,12 @@ package software.coley.recaf.services.deobfuscation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import software.coley.recaf.services.deobfuscation.transform.generic.CallResultInliningTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.DeadCodeRemovingTransformer;
 import software.coley.recaf.services.deobfuscation.transform.generic.GotoInliningTransformer;
@@ -440,6 +445,101 @@ public class RegressionDeobfuscationTest extends TransformerTestBase {
 				}
 				""";
 		validateNoTransformation(asm, List.of(VariableFoldingTransformer.class));
+	}
+
+	/**
+	 * Prior transformer behavior would try to fold the first part, but also break the second part by changing
+	 * {@code iload} to {@code aload} if the slot was the same. We want to fold the first part without breaking
+	 * the second part.
+	 */
+	@Test
+	void variableFoldingKeepsDifferentTypedSlotReuse() {
+		String asm = """
+				.method public static example (Ljava/lang/Object;)I {
+				    parameters: { source },
+				    code: {
+				    A:
+				        aload source
+				        astore copy // transformer wants to fold this redundant store to use just 'source'
+				        aload copy
+				        pop
+				    B:
+				        // Rewrite 'copy' to hold an int from this point onward.
+				        invokestatic Example.getValue ()I
+				        istore copy
+				    C:
+				        // Transformer should keep this as iload as the value of 'copy' is a clearly different type.
+				        iload copy
+				        ireturn
+				    D:
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(VariableFoldingTransformer.class), dis -> {
+			assertTrue(RegexUtil.matchesAny("iload \\w+\\s+ireturn", dis), "The integer reuse of the copy slot must remain an integer load");
+			assertFalse(RegexUtil.matchesAny("aload source\\s+ireturn", dis), "The reference source must not replace the integer result");
+		});
+	}
+
+	/**
+	 * Variant of the above test, main thing we are testing here is that the {@code iinc} doesn't trip up the
+	 * tracking of the foldable reference portion at the start.
+	 */
+	@Test
+	void variableFoldingKeepsIincForDifferentTypedSlotReuse() {
+		String asm = """
+				.method public static example (Ljava/lang/Object;)I {
+				    parameters: { source },
+				    code: {
+				    A:
+				        aload source
+				        astore copy
+				        aload copy
+				        pop
+				    B:
+				        invokestatic Example.getValue ()I
+				        istore copy
+				    C:
+				        iinc copy 1
+				        iload copy
+				        ireturn
+				    D:
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(VariableFoldingTransformer.class), dis -> {
+			assertTrue(RegexUtil.matchesAny("istore (\\w+)\\s+iinc \\1 1\\s+iload \\1", dis), "The integer increment must remain on the reused slot");
+			assertFalse(RegexUtil.matchesAny("iinc i0 1", dis), "The reference source must not receive the integer increment");
+		});
+	}
+
+	/**
+	 * Illegal code that writes to wide-reserved slots shouldn't trigger transformations.
+	 */
+	@Test
+	void variableFoldingRejectsOverlappingWideSourceWrite() {
+		putClass(CLASS_NAME, node -> {
+			// Pseudocode: long example(long p0)
+			//    long v2 = p0;
+			//    int i1 = getValue(); // Illegal store to reserved slot 1 (overlaps with reserved slot of p0)
+			//    i1;
+			//    return v2;
+			MethodNode method = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "example", "(J)J", null, null);
+			method.instructions.add(new VarInsnNode(Opcodes.LLOAD, 0));
+			method.instructions.add(new VarInsnNode(Opcodes.LSTORE, 2));
+			method.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC, CLASS_NAME, "getValue", "()I", false));
+			method.instructions.add(new VarInsnNode(Opcodes.ISTORE, 1));
+			method.instructions.add(new VarInsnNode(Opcodes.ILOAD, 1));
+			method.instructions.add(new InsnNode(Opcodes.POP));
+			method.instructions.add(new VarInsnNode(Opcodes.LLOAD, 2));
+			method.instructions.add(new InsnNode(Opcodes.LRETURN));
+			method.maxStack = 2;
+			method.maxLocals = 4;
+			node.methods.add(method);
+		});
+		JvmTransformResult result = assertDoesNotThrow(() -> newApplier().transformJvm(List.of(VariableFoldingTransformer.class)));
+		assertTrue(result.getTransformerFailures().isEmpty(), "There were transformation failures");
+		assertTrue(result.getTransformedClasses().isEmpty(), "The overlapping source write must prevent copy folding");
 	}
 
 	@Test

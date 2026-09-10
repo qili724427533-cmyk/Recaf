@@ -658,8 +658,10 @@ public class VariableFoldingTransformer implements JvmClassTransformer {
 			int i = unprocessed.poll();
 			AbstractInsnNode insn = instructions.get(i);
 			int op = insn.getOpcode();
-			boolean isXWrite = (isVarStore(op) && ((VarInsnNode) insn).var == slotX) ||
-					(op == IINC && ((IincInsnNode) insn).var == slotX);
+			int sourceEnd = slotX + Types.fromSort(typeSort).getSize();
+			boolean isXWrite = insn instanceof VarInsnNode variable && isVarStore(op)
+					&& variable.var < sourceEnd && variable.var + getTypeForVarInsn(variable).getSize() > slotX
+					|| insn instanceof IincInsnNode increment && increment.var >= slotX && increment.var < sourceEnd;
 			int newState = state[i];
 			if (isXWrite)
 				newState = 1;
@@ -697,9 +699,9 @@ public class VariableFoldingTransformer implements JvmClassTransformer {
 		AbstractInsnNode replacement = createVarLoad(slotX, typeSort);
 		for (int i = 0; i < instructions.size(); i++) {
 			AbstractInsnNode insn = instructions.get(i);
-			if (insn instanceof VarInsnNode vin && vin.var == slotY && isVarLoad(vin.getOpcode())) {
+			if (insn instanceof VarInsnNode vin && vin.var == slotY && isMatchingLoad(typeSort, vin.getOpcode())) {
 				instructions.set(insn, replacement.clone(null));
-			} else if (insn instanceof IincInsnNode iinc && iinc.var == slotY) {
+			} else if (typeSort == Type.INT && insn instanceof IincInsnNode iinc && iinc.var == slotY) {
 				iinc.var = slotX;
 			}
 		}
