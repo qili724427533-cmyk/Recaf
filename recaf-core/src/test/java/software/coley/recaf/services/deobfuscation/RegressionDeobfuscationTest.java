@@ -514,6 +514,40 @@ public class RegressionDeobfuscationTest extends TransformerTestBase {
 	}
 
 	/**
+	 * Another variant that allows the first part to be folded, without getting confused by the slot re-assignment later.
+	 */
+	@Test
+	void variableFoldingResetsAfterSlotDomination() {
+		String asm = """
+				.method public static example (Ljava/lang/Object;)Ljava/lang/Object; {
+				    parameters: { source },
+				    code: {
+				    A:
+				        aload source
+				        astore copy
+				        aload copy // <-- Can be 'source'
+				        pop
+				    B:
+				        invokestatic Example.getValue ()Ljava/lang/Object;
+				        astore copy
+				    C:
+				        aload copy // <-- Must remain as 'copy'
+				        areturn
+				    D:
+				    }
+				}
+				""";
+		validateAfterAssembly(asm, List.of(VariableFoldingTransformer.class), dis -> {
+			// The first copy is redundant and should be replaced with direct source loads.
+			assertTrue(RegexUtil.matchesAny("aload source\\s+pop\\s+aload source\\s+pop", dis), "The copy should fold before the later overwrite");
+
+			// The later definition must remain the value read by the return path.
+			assertTrue(RegexUtil.matchesAny("invokestatic Example.getValue \\(\\)Ljava/lang/Object;\\s+astore \\w+\\s+aload \\w+\\s+areturn", dis), "The later slot definition and read must remain");
+			assertFalse(RegexUtil.matchesAny("invokestatic Example.getValue \\(\\)Ljava/lang/Object;\\s+astore \\w+\\s+aload source\\s+areturn", dis), "The later slot definition must not be replaced with the original source");
+		});
+	}
+
+	/**
 	 * Illegal code that writes to wide-reserved slots shouldn't trigger transformations.
 	 */
 	@Test
