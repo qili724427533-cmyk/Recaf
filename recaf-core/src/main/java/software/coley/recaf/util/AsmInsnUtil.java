@@ -722,7 +722,7 @@ public class AsmInsnUtil implements Opcodes {
 		int op = insn.getOpcode();
 		if (op == ATHROW) // Obvious case
 			return true;
-		if (insn instanceof MethodInsnNode) // Method calls can throw.
+		if (insn instanceof MethodInsnNode || insn instanceof InvokeDynamicInsnNode) // Calls can throw.
 			return true;
 
 		// Type resolution and allocation instructions can throw before their normal result is available.
