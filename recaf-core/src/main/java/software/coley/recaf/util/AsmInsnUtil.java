@@ -724,6 +724,13 @@ public class AsmInsnUtil implements Opcodes {
 			return true;
 		if (insn instanceof MethodInsnNode) // Method calls can throw.
 			return true;
+
+		// Type resolution and allocation instructions can throw before their normal result is available.
+		//  - NEW triggering class resolution, <clinit> fails, etc.
+		if (op == NEW || op == ANEWARRAY || op == NEWARRAY || op == MULTIANEWARRAY ||
+				op == CHECKCAST || op == INSTANCEOF)
+			return true;
+
 		// NullPointerException
 		return op == GETFIELD || op == PUTFIELD || op == ARRAYLENGTH ||
 				// NullPointerException, ArrayIndexOutOfBoundsException
